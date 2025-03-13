@@ -23,7 +23,8 @@
 /*--------------------------------------------------------------------------*/
 
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h> 1 file changed, 318 insertions(+), 100 deletions(-)
+
 #include <string.h>
 #include "global.h"
 #include "scanner.h"
@@ -56,6 +57,16 @@ PRIVATE void ParseStatement( void );
 PRIVATE void ParseExpression( void );
 PRIVATE void Accept( int code );
 PRIVATE void ReadToEndOfFile( void );
+PRIVATE void ParseTerm(void);
+PRIVATE void ParseReadStatement( void );
+PRIVATE void ParseCompoundTerm( void );
+PRIVATE void ParseRelOp( void );
+PRIVATE void ParseMultOp( void );
+PRIVATE void ParseAddOp( void );
+PRIVATE void ParseWriteStatement( void );
+PRIVATE void ParseSubTerm( void );
+PRIVATE void ParseBooleanExpression( void );
+PRIVATE void ParseIfStatement( void );
 
 
 /*--------------------------------------------------------------------------*/
@@ -156,7 +167,7 @@ PRIVATE void ParseStatement( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
-PRIVATE void Expression( void )
+PRIVATE void ParseExpression( void )
 {
 	ParseCompoundTerm();
   	while(CurrentToken.code== ADD || CurrentToken.code== SUBTRACT){ //TODO Find better way to do this
@@ -218,7 +229,7 @@ PRIVATE void ParseIfStatement( void )
 	Accept(THEN);
 	ParseBlock();
 	If(CurrentToken.code== ELSE){
-		Accept( ELSE);
+		Accept(ELSE);
 		ParseBlock();
   	}
 }
@@ -305,7 +316,7 @@ PRIVATE void ParseWriteStatement( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void CompoundTerm( void )
+PRIVATE void ParseCompoundTerm( void )
 {
 	ParseTerm();
   	while(CurrentToken.code== MULTIPLY || CurrentToken.code== DIVIDE){ //TODO Find better way to do this
@@ -642,3 +653,5 @@ PRIVATE void ReadToEndOfFile( void )
         while ( CurrentToken.code != ENDOFINPUT )  CurrentToken = GetToken();
     }
 }
+
+
