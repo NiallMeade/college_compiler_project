@@ -2,12 +2,24 @@
 /*                                                                          */
 /*       smallparser                                                        */
 /*                                                                          */
-/*       An illustration of the use of the character handler and scanner    */
-/*       in a parser for the language                                       */
+/*       Group Members:          ID numbers                                 */
 /*                                                                          */
-/*       <Program>     :== "BEGIN" { <Statement> ";" } "END" "."            */
-/*       <Statement>   :== <Identifier> ":=" <Expression>                   */
-/*       <Expression>  :== <Identifier> | <IntConst>                        */
+/*           Niall Meade         22339752                                   */
+/*           Nancy Haren         22352511                                   */
+/*           Kennedy Ogbedeagu   22341439                                   */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*       Parses the language defined by this grammar:                       */
+/*                                                                          */
+/*       <Program>       :==  "PROGRAM" <Identifier> ";"                    */
+/*                            [ <Declarations> ] <Block> "."           (1)  */
+/*       <Declarations>  :==  "VAR" <Variable> { "," <Variable> } ";"  (2)  */
+/*       <Block>         :==  "BEGIN" { <Statement> ";" } "END"        (3)  */
+/*       <Statement>     :==  <Identifier> ":=" <Expression>           (4)  */
+/*       <Expression>    :==  <Term> { ("+"|"-") <Term> }              (5)  */
+/*       <Term>          :==  <Variable> | <IntConst>                  (6)  */
+/*       <Variable>      :==  <Identifier>                             (7)  */
 /*                                                                          */
 /*                                                                          */
 /*       Note - <Identifier> and <IntConst> are provided by the scanner     */
@@ -53,8 +65,27 @@ PRIVATE TOKEN  CurrentToken;       /*  Parser lookahead token.  Updated by  */
 
 PRIVATE int  OpenFiles( int argc, char *argv[] );
 PRIVATE void ParseProgram( void );
+PRIVATE void ParseDeclarations( void );
+PRIVATE void ParseProcDeclarations( void );
+PRIVATE void ParseBlock( void );
+PRIVATE void ParseParamList( void );
+PRIVATE void ParseFormalParam( void );
 PRIVATE void ParseStatement( void );
 PRIVATE void ParseExpression( void );
+PRIVATE void ParseTerm( void );
+PRIVATE void parseSimpleStatement( void );
+PRIVATE void parseWhileStatement( void );
+PRIVATE void parseIfStatement( void );
+PRIVATE void parseReadStatement( void );
+PRIVATE void parseWriteStatement( void );
+PRIVATE void ParseRestOfStatement( void );
+PRIVATE void parseProcCallList( void );
+PRIVATE void parseAssignment( void );
+PRIVATE void parseActualParameter( void );
+
+
+
+PRIVATE int  OpenFiles( int argc, char *argv[] );
 PRIVATE void Accept( int code );
 PRIVATE void ReadToEndOfFile( void );
 PRIVATE void ParseTerm(void);
@@ -115,12 +146,23 @@ PUBLIC int main ( int argc, char *argv[] )
 
 PRIVATE void ParseProgram( void )
 {
-    Accept( BEGIN );
-    while ( CurrentToken.code == IDENTIFIER )  {
-        ParseStatement();
-        Accept( SEMICOLON );
+    Accept( PROGRAM );  
+    Accept( IDENTIFIER );
+    Accept( SEMICOLON );
+
+    /* EBNF "zero or one of" operation: [...] implemented as if-statement.  */
+    /* Operation triggered by a <Declarations> block in the input stream.   */
+    /* <Declarations>, if present, begins with a "VAR" token.               */
+
+    if ( CurrentToken.code == VAR )  ParseDeclarations();
+
+    while (CurrentToken.code == PROCEDURE)
+    {
+        ParseProcDeclarations();
     }
-    Accept( END );
+    
+
+    ParseBlock();
     Accept( ENDOFPROGRAM );     /* Token "." has name ENDOFPROGRAM          */
 }
 
@@ -203,6 +245,61 @@ PRIVATE void ParseWhileStatement( void )
 	ParseBlock();
 }
 
+PRIVATE void ParseProcDeclarations( void )
+{
+    Accept( PROCEDURE );
+    Accept( IDENTIFIER );
+    
+    if( CurrentToken.code == LEFTPARENTHESIS ) ParseParamList();
+
+    Accept( SEMICOLON );
+
+    if ( CurrentToken.code == VAR )  ParseDeclarations();
+
+    while (CurrentToken.code == PROCEDURE)
+    {
+        ParseProcDeclarations();
+    }
+
+    ParseBlock();
+
+    Accept( SEMICOLON );
+}
+
+PRIVATE void ParseBlock( void )
+{
+    Accept( BEGIN );
+
+    /* EBNF repetition operator {...} implemented as a while-loop.          */
+    /* Repetition triggered by a <Statement> in the input stream.           */
+    /* A <Statement> starts with a <Variable>, which is an IDENTIFIER.      */
+
+    while ( (CurrentToken.code == IDENTIFIER) || ((CurrentToken.code == WHILE))
+     || (CurrentToken.code == IF) || (CurrentToken.code == READ) || (CurrentToken.code == WRITE))  {
+        ParseStatement();
+        Accept( SEMICOLON );
+    }
+
+    Accept( END );
+}
+
+PRIVATE void ParseParamList( void )
+{
+    Accept( LEFTPARENTHESIS );
+    ParseFormalParam();
+    while ( CurrentToken.code == COMMA )  {
+        Accept( COMMA );
+        ParseFormalParam();
+    }
+    Accept( RIGHTPARENTHESIS );
+}
+
+PRIVATE void ParseFormalParam( void )
+{
+    if(CurrentToken.code == REF) Accept( REF );
+    Accept( IDENTIFIER );
+}
+
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
 /*  ParseIfStatement implements:                          		    */
@@ -264,6 +361,57 @@ PRIVATE void ParseReadStatement( void )
   	}
   	Accept(RIGHTPARENTHESIS);
 }
+
+PRIVATE void ParseStatement( void )
+{
+    switch(CurrentToken.code) {
+        case IDENTIFIER:
+            parseSimpleStatement();
+        case WHILE:
+            parseWhileStatement();
+        case IF:
+            parseIfStatement();
+        case READ:
+            parseReadStatement();
+        default:
+            parseWriteStatement();
+    }
+}
+
+PRIVATE void ParseSimpleStatement( void )
+{
+    Accept( IDENTIFIER );
+    ParseRestOfStatement();
+}
+
+PRIVATE void ParseRestOfStatement( void )
+{
+    if(CurrentToken.code == LEFTPARENTHESIS){
+        parseProcCallList();
+    } else if(CurrentToken.code == ASSIGNMENT){
+        parseAssignment();
+    } else{
+        //todo
+    }
+}
+
+PRIVATE void parseProcCallList( void )
+{
+    Accept( LEFTPARENTHESIS );
+    parseActualParameter();
+    while(CurrentToken.code == COMMA){
+        Accept( COMMA );
+        parseActualParameter();
+    }
+    Accept(RIGHTPARENTHESIS);
+}
+
+PRIVATE void parseAssignment( void )
+{
+    Accept( ASSIGNMENT );
+    parseExpression();
+}
+
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
