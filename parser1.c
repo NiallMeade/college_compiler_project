@@ -151,7 +151,34 @@ PRIVATE void ParseStatement( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  	Expression implements:                          		    */
+/*  	ParseExpression implements:                          		    */
+/*                                                                          */
+/*         	〈Expression〉:==〈CompoundTerm〉{ 〈AddOp〉〈CompoundTerm〉 }      */
+/*                                                                          */
+/*       								    */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Nothing                                                 */
+/*                                                                          */
+/*    Side Effects: Lookahead token advanced.                               */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
+PRIVATE void ParseExpression( void )
+{
+	ParseCompoundTerm();
+  	while(CurrentToken.code== ADD || CurrentToken.code== SUBTRACT){ //TODO Find better way to do this
+  	ParseAddOp();
+  	ParseCompoundTerm();
+  	}
+}
+
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  	ParseExpression implements:                          		    */
 /*                                                                          */
 /*         	〈Expression〉:==〈CompoundTerm〉{ 〈AddOp〉〈CompoundTerm〉 }      */
 /*                                                                          */
