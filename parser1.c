@@ -113,6 +113,7 @@ PUBLIC int main ( int argc, char *argv[] )
         parseProgram();
         fclose( InputFile );
         fclose( ListFile );
+        printf("valid\n");
         return  EXIT_SUCCESS;
     }
     else 
@@ -156,16 +157,9 @@ PRIVATE void parseProgram( void )
         parseProcDeclarations();
     }
     
-    
- 
-
     /* EBNF "zero or one of" operation: [...] implemented as if-statement.  */
     /* Operation triggered by a <Declarations> block in the input stream.   */
-    /* <Declarations>, if present, begins with a "VAR" token.               */
-
-    
-
-    
+    /* <Declarations>, if present, begins with a "PROCEDURE" token.               */
 
     parseBlock();
     Accept( ENDOFPROGRAM );     /* Token "." has name ENDOFPROGRAM          */
