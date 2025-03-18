@@ -193,15 +193,15 @@ PRIVATE void Synchronise( SET *F, SET *FB )
 
 PRIVATE void SetupSets( void )
 {
-    InitSet( &ProgramFS_aug, 6, VAR, PROCEDURE, BEGIN, ENDOFINPUT, END, ENDOFPROGRAM);
-    InitSet( &ProgramSS_aug, 5, PROCEDURE, BEGIN, ENDOFINPUT, END, ENDOFPROGRAM);
+    InitSet( &ProgramFS_aug, 3, VAR, PROCEDURE, BEGIN);
+    InitSet( &ProgramSS_aug, 2, PROCEDURE, BEGIN);
     InitSet( &ProgramFBS, 3, ENDOFINPUT, END, ENDOFPROGRAM);
 
-    InitSet( &ProcedureFS_aug, 6, VAR, PROCEDURE, BEGIN, ENDOFINPUT, END, ENDOFPROGRAM);
-    InitSet( &ProcedureSS_aug, 5, PROCEDURE, BEGIN, ENDOFINPUT, END, ENDOFPROGRAM);
+    InitSet( &ProcedureFS_aug, 3, VAR, PROCEDURE, BEGIN);
+    InitSet( &ProcedureSS_aug, 2, PROCEDURE, BEGIN);
     InitSet( &ProcedureFBS, 3, ENDOFINPUT, END, ENDOFPROGRAM);
 
-    InitSet( &BlockFS_aug, 10, IDENTIFIER, WHILE, IF, READ, WRITE, END, SEMICOLON, ELSE, ENDOFINPUT, ENDOFPROGRAM);
+    InitSet( &BlockFS_aug, 6, IDENTIFIER, WHILE, IF, READ, WRITE, END);
     InitSet( &BlockFBS, 4, SEMICOLON, ELSE, ENDOFINPUT, ENDOFPROGRAM);
 }
 
