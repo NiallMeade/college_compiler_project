@@ -67,6 +67,9 @@ PRIVATE SET ProcedureFBS;
 PRIVATE SET BlockFS_aug;
 PRIVATE SET BlockFBS;
 
+PRIVATE SET RestOfStatementFS_aug;
+PRIVATE SET RestOfStatementFBS;
+
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
 /*  Function prototypes                                                     */
@@ -203,6 +206,9 @@ PRIVATE void SetupSets( void )
 
     InitSet( &BlockFS_aug, 6, IDENTIFIER, WHILE, IF, READ, WRITE, END);
     InitSet( &BlockFBS, 4, SEMICOLON, ELSE, ENDOFINPUT, ENDOFPROGRAM);
+
+    InitSet( &RestOfStatementFS_aug, 3, LEFTPARENTHESIS, ASSIGNMENT, SEMICOLON);
+    InitSet( &RestOfStatementFBS, 3, SEMICOLON, ENDOFINPUT, ENDOFPROGRAM);
 }
 
 /*--------------------------------------------------------------------------*/
@@ -445,12 +451,13 @@ PRIVATE void parseSimpleStatement( void )
 
 PRIVATE void parseRestOfStatement( void )
 {
-    if(CurrentToken.code == LEFTPARENTHESIS){
+    Synchronise(&RestOfStatementFS_aug, &RestOfStatementFBS);
+    if(CurrentToken.code == SEMICOLON){
+        return;
+    } else if(CurrentToken.code == LEFTPARENTHESIS){
         parseProcCallList();
-    } else if(CurrentToken.code == ASSIGNMENT){
-        parseAssignment();
     } else{
-        /*todo*/
+        parseAssignment();
     }
 }
 
