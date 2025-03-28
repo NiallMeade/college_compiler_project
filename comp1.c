@@ -45,7 +45,7 @@
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  Global variables used by this parser.                                   */
+/*  Global variables used by this compiler.                                   */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
@@ -69,6 +69,9 @@ PRIVATE SET BlockFBS;
 
 PRIVATE SET RestOfStatementFS_aug;
 PRIVATE SET RestOfStatementFBS;
+
+int scope=1;/* global variables have scope 1*/ 
+int varaddress=0;
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -161,6 +164,7 @@ PRIVATE void parseProgram( void )
 {
     
     Accept( PROGRAM );  
+    makeSymbolTableEntry(STYPE_PROGRAM);
     Accept( IDENTIFIER );
     Accept(SEMICOLON);
     Synchronise( &ProgramFS_aug, &ProgramFBS);
@@ -286,6 +290,7 @@ PRIVATE void parseWhileStatement( void )
 PRIVATE void parseProcDeclarations( void )
 {
     Accept( PROCEDURE );
+    makeSymbolTableEntry(STYPE_PROCEDURE);
     Accept( IDENTIFIER );
     
     if( CurrentToken.code == LEFTPARENTHESIS ) parseParamList();
@@ -338,9 +343,11 @@ PRIVATE void parseParamList( void )
 PRIVATE void parseDeclarations( void )
 {
     Accept( VAR );
+    makeSymbolTableEntry(STYPE_VARIABLE);
     Accept( IDENTIFIER );
     while( CurrentToken.code == COMMA){
         Accept( COMMA );
+    makeSymbolTableEntry(STYPE_VARIABLE);
         Accept( IDENTIFIER );
     }
     Accept( SEMICOLON );
@@ -349,6 +356,7 @@ PRIVATE void parseDeclarations( void )
 PRIVATE void parseActualParameter( void )
 {
     if( CurrentToken.code == IDENTIFIER){
+    makeSymbolTableEntry(STYPE_VALUEPAR);//TODO
         Accept( IDENTIFIER );
     } else{
         parseExpression();
@@ -851,7 +859,21 @@ PRIVATE void ReadToEndOfFile( void )
 PRIVATE void makeSymbolTableEntry(int symType){
 SYMBOL oldsptr=NULL;
 if(CurrentToken.code==IDENTIFIER){
- 	if(NULL == (oldsptr=Probe(CurrentToken.s,&hashindex)) || oldsptr.scope< scope)
+ 	if(NULL == (oldsptr=Probe(CurrentToken.s,&hashindex)) || oldsptr.scope< scope){
+ 		if(oldsptr==NULL) {cptr=CurrentToken.s; }else{cptr= oldstr.s;}
+ 		if((newptrs=EnterSymbol(cptr,hashindex))==NULL){
+ 		/*fatal error compiler must exit*/
+ 		}else{ 
+ 		if(olsptr==NULL){ PreserveString();}
+ 		newsptr.scope=scope;
+ 		newsptr.type=symType;
+ 		if(symType==STYPE_VARIABLE){
+ 		newsptr.address=varaddress++;
+ 		}else{
+ 		newsptr.address=-1;
+ 		}
+ 		
+ 		}
  	}
 }
 
