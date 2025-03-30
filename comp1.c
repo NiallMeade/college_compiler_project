@@ -41,7 +41,7 @@
 #include "global.h"
 #include "scanner.h"
 #include "line.h"
-
+#include "symbol.h"
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -113,6 +113,7 @@ PRIVATE void parseBooleanExpression( void );
 PRIVATE void parseIfStatement( void );
 PRIVATE void Synchronise( SET *F, SET *FB );
 PRIVATE void SetupSets( void );
+PRIVATE void makeSymbolTableEntry( int symType );
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -202,7 +203,7 @@ PRIVATE void SetupSets( void )
 {
     InitSet( &ProgramFS_aug, 3, VAR, PROCEDURE, BEGIN);
     InitSet( &ProgramSS_aug, 2, PROCEDURE, BEGIN);
-    InitSet( &ProgramFBS, 3, ENDOFINPUT, END, ENDOFSynchronisePROGRAM);
+    InitSet( &ProgramFBS, 3, ENDOFINPUT, END, ENDOFPROGRAM);
 
     InitSet( &ProcedureFS_aug, 3, VAR, PROCEDURE, BEGIN);
     InitSet( &ProcedureSS_aug, 2, PROCEDURE, BEGIN);
@@ -356,7 +357,7 @@ PRIVATE void parseDeclarations( void )
 PRIVATE void parseActualParameter( void )
 {
     if( CurrentToken.code == IDENTIFIER){
-    makeSymbolTableEntry(STYPE_VALUEPAR);//TODO
+    makeSymbolTableEntry(STYPE_VALUEPAR);
         Accept( IDENTIFIER );
     } else{
         parseExpression();
@@ -856,24 +857,31 @@ PRIVATE void ReadToEndOfFile( void )
     }
 }
 
-PRIVATE void makeSymbolTableEntry(int symType){
-SYMBOL oldsptr=NULL;
-if(CurrentToken.code==IDENTIFIER){
- 	if(NULL == (oldsptr=Probe(CurrentToken.s,&hashindex)) || oldsptr.scope< scope){
- 		if(oldsptr==NULL) {cptr=CurrentToken.s; }else{cptr= oldstr.s;}
- 		if((newptrs=EnterSymbol(cptr,hashindex))==NULL){
- 		/*fatal error compiler must exit*/
- 		}else{ 
- 		if(olsptr==NULL){ PreserveString();}
- 		newsptr.scope=scope;
- 		newsptr.type=symType;
- 		if(symType==STYPE_VARIABLE){
- 		newsptr.address=varaddress++;
- 		}else{
- 		newsptr.address=-1;
- 		}
- 		
- 		}
- 	}
+PRIVATE void makeSymbolTableEntry(int symType) {
+    SYMBOL *oldsptr=NULL;
+    SYMBOL *newsptr=NULL;
+    char *cptr;
+    int hashindex;
+    if (CurrentToken.code==IDENTIFIER) {
+        if (NULL == (oldsptr = Probe(CurrentToken.s, &hashindex)) || oldsptr->scope < scope) {
+            if (oldsptr==NULL) cptr=CurrentToken.s;
+            else cptr= oldsptr->s;
+            if ((newsptr = EnterSymbol(cptr, hashindex)) == NULL) {
+                /*fatal error compiler must exit*/
+            } else { 
+                if (oldsptr==NULL) PreserveString();
+                newsptr->scope = scope;
+                newsptr->type = symType;
+                if (symType == STYPE_VARIABLE) {
+                    newsptr->address=varaddress;
+                    varaddress++;
+                } else {
+                    newsptr->address = -1;
+                }
+            
+            }
+        } else {
+            Error("Identifier previously declared", CurrentToken.pos);
+        }
+    }
 }
-
