@@ -142,7 +142,26 @@ PUBLIC int main ( int argc, char *argv[] )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-/* :==   “PROGRAM〈Identifier〉“;”[〈Declarations〉]{ 〈ProcDeclaration〉 } 〈Block〉“.”*/
+
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  	parseProgram implements:                          		            */
+/*                                                                          */
+/*         	〈Program〉:== “PROGRAM〈Identifier〉“;”                         */
+/*           [〈Declarations〉]{ 〈ProcDeclaration〉 } 〈Block〉“.”          */
+/*                                                                          */
+/*       								                                    */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Nothing                                                 */
+/*                                                                          */
+/*    Side Effects: Lookahead token advanced.                               */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
 PRIVATE void parseProgram( void )
 {
     
@@ -159,7 +178,7 @@ PRIVATE void parseProgram( void )
     
     /* EBNF "zero or one of" operation: [...] implemented as if-statement.  */
     /* Operation triggered by a <Declarations> block in the input stream.   */
-    /* <Declarations>, if present, begins with a "PROCEDURE" token.               */
+    /* <Declarations>, if present, begins with a "PROCEDURE" token.         */
 
     parseBlock();
     Accept( ENDOFPROGRAM );     /* Token "." has name ENDOFPROGRAM          */
@@ -167,11 +186,11 @@ PRIVATE void parseProgram( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  	Expression implements:                          		    */
+/*  	parseExpression implements:                          		        */
 /*                                                                          */
-/*         	〈Expression〉:==〈CompoundTerm〉{ 〈AddOp〉〈CompoundTerm〉 }      */
+/*         	〈Expression〉:==〈CompoundTerm〉{ 〈AddOp〉〈CompoundTerm〉 }   */
 /*                                                                          */
-/*       								    */
+/*       								                                    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -194,11 +213,11 @@ PRIVATE void parseExpression( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseWhileStatement implements:                          		    */
+/*  parseWhileStatement implements:                          		        */
 /*                                                                          */
-/* 〈WhileStatement〉:==   “WHILE”〈BooleanExpression〉“DO”〈Block〉 		        */
+/* 〈WhileStatement〉:==   “WHILE”〈BooleanExpression〉“DO”〈Block〉 		 */
 /*                                                                          */
-/*       								    */
+/*       								                                    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -210,7 +229,6 @@ PRIVATE void parseExpression( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
-
 PRIVATE void parseWhileStatement( void )
 {
 	Accept(WHILE);
@@ -221,11 +239,11 @@ PRIVATE void parseWhileStatement( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseWhileStatement implements:                          		    */
+/*  parseWhileStatement implements:                          		        */
 /*                                                                          */
-/* 〈WhileStatement〉:==   “WHILE”〈BooleanExpression〉“DO”〈Block〉 		        */
+/* 〈WhileStatement〉:==   “WHILE”〈BooleanExpression〉“DO”〈Block〉 		 */
 /*                                                                          */
-/*       								    */
+/*       								                                    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -258,6 +276,24 @@ PRIVATE void parseProcDeclarations( void )
     Accept( SEMICOLON );
 }
 
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  parseBlock implements:                          		                */
+/*                                                                          */
+/* 〈Block〉:==   "BEGIN" { <Statement> ";" } "END"                  		 */
+/*                                                                          */
+/*       								                                    */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Nothing                                                 */
+/*                                                                          */
+/*    Side Effects: Lookahead token advanced.                               */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
 PRIVATE void parseBlock( void )
 {
     Accept( BEGIN );
@@ -274,6 +310,24 @@ PRIVATE void parseBlock( void )
     Accept( END );
 }
 
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  parseParamList implements:                          		            */
+/*                                                                          */
+/* 〈ParamList〉:==   "(" <FormalParameter> { "," <FormalParameter> } ")"   */
+/*                                                                          */
+/*       								                                    */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Nothing                                                 */
+/*                                                                          */
+/*    Side Effects: Lookahead token advanced.                               */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
 PRIVATE void parseParamList( void )
 {
     Accept( LEFTPARENTHESIS );
@@ -285,6 +339,24 @@ PRIVATE void parseParamList( void )
     Accept( RIGHTPARENTHESIS );
 }
 
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  parseDeclarations implements:                          		            */
+/*                                                                          */
+/* 〈Declarations〉:==   “VAR”〈Variable〉 { "," <Variable> } ";"   		 */
+/*                                                                          */
+/*       								                                    */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Nothing                                                 */
+/*                                                                          */
+/*    Side Effects: Lookahead token advanced.                               */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
 PRIVATE void parseDeclarations( void )
 {
     Accept( VAR );
@@ -296,6 +368,24 @@ PRIVATE void parseDeclarations( void )
     Accept( SEMICOLON );
 }
 
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  parseActualParameter implements:                          		        */
+/*                                                                          */
+/* 〈ActualParameter〉:==   <Variable> | <Expression>                		*/
+/*                                                                          */
+/*       								                                    */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Nothing                                                 */
+/*                                                                          */
+/*    Side Effects: Lookahead token advanced.                               */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
 PRIVATE void parseActualParameter( void )
 {
     if( CurrentToken.code == IDENTIFIER){
@@ -305,6 +395,24 @@ PRIVATE void parseActualParameter( void )
     }
 }
 
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  parseFormalParam implements:                          		            */
+/*                                                                          */
+/* 〈FormalParam〉:==   ["REF"] <Variable>              		            */
+/*                                                                          */
+/*       								                                    */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Nothing                                                 */
+/*                                                                          */
+/*    Side Effects: Lookahead token advanced.                               */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
 PRIVATE void parseFormalParam( void )
 {
     if(CurrentToken.code == REF) Accept( REF );
@@ -329,7 +437,6 @@ PRIVATE void parseFormalParam( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
-
 PRIVATE void parseIfStatement( void )
 {
 	Accept(IF);
@@ -360,7 +467,6 @@ PRIVATE void parseIfStatement( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
-
 PRIVATE void parseReadStatement( void )
 {
 	Accept(READ);
@@ -373,6 +479,25 @@ PRIVATE void parseReadStatement( void )
   	Accept(RIGHTPARENTHESIS);
 }
 
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  parseStatement implements:                                  		    */
+/*                                                                          */
+/* 〈Statement〉:==   <SimpleStatement>	| <WhileStatement> |                */
+/*               <IfStatement> | <ReadStatement> | <WriteStatement>         */
+/*                                                                          */
+/*       			                                					    */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Nothing                                                 */
+/*                                                                          */
+/*    Side Effects: Lookahead token advanced.                               */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
 PRIVATE void parseStatement( void )
 {
     switch(CurrentToken.code) {
@@ -393,12 +518,48 @@ PRIVATE void parseStatement( void )
     }
 }
 
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  parseSimpleStatement implements:                                 		*/
+/*                                                                          */
+/* 〈SimpleStatement〉:==   <VarOrProcName> <RestOfStatement>               */
+/*                                                                          */
+/*       			                                					    */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Nothing                                                 */
+/*                                                                          */
+/*    Side Effects: Lookahead token advanced.                               */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
 PRIVATE void parseSimpleStatement( void )
 {
     Accept( IDENTIFIER );
     parseRestOfStatement();
 }
 
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  parseRestOfStatement implements:                                 		*/
+/*                                                                          */
+/* 〈RestOfStatement〉:==   <ProcCallList> | <Assignment> | ε               */
+/*                                                                          */
+/*       			                                					    */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Nothing                                                 */
+/*                                                                          */
+/*    Side Effects: Lookahead token advanced.                               */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
 PRIVATE void parseRestOfStatement( void )
 {
     if(CurrentToken.code == LEFTPARENTHESIS){
@@ -410,6 +571,24 @@ PRIVATE void parseRestOfStatement( void )
     }
 }
 
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  parseProcCallList implements:                                 		    */
+/*                                                                          */
+/* 〈ProcCallList〉:==   "(" <ActualParameter> { "," <ActualParameter> } ")"*/
+/*                                                                          */
+/*       			                                					    */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Nothing                                                 */
+/*                                                                          */
+/*    Side Effects: Lookahead token advanced.                               */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
 PRIVATE void parseProcCallList( void )
 {
     Accept( LEFTPARENTHESIS );
@@ -421,12 +600,29 @@ PRIVATE void parseProcCallList( void )
     Accept(RIGHTPARENTHESIS);
 }
 
+/*--------------------------------------------------------------------------*/
+/*                                                                          */
+/*  parseAssignment implements:                                 		    */
+/*                                                                          */
+/* 〈Assignment〉:==   ":=" <Expression>                                    */
+/*                                                                          */
+/*       			                                					    */
+/*                                                                          */
+/*                                                                          */
+/*    Inputs:       None                                                    */
+/*                                                                          */
+/*    Outputs:      None                                                    */
+/*                                                                          */
+/*    Returns:      Nothing                                                 */
+/*                                                                          */
+/*    Side Effects: Lookahead token advanced.                               */
+/*                                                                          */
+/*--------------------------------------------------------------------------*/
 PRIVATE void parseAssignment( void )
 {
     Accept( ASSIGNMENT );
     parseExpression();
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -446,7 +642,6 @@ PRIVATE void parseAssignment( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
-
 PRIVATE void parseWriteStatement( void )
 {
 	Accept(WRITE);
@@ -458,7 +653,6 @@ PRIVATE void parseWriteStatement( void )
   	}
   	Accept(RIGHTPARENTHESIS);
 }
-
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -478,7 +672,6 @@ PRIVATE void parseWriteStatement( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
-
 PRIVATE void parseCompoundTerm( void )
 {
 	parseTerm();
@@ -490,11 +683,11 @@ PRIVATE void parseCompoundTerm( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseTerm implements:                          		            */
+/*  parseTerm implements:                          		                    */
 /*                                                                          */
-/*         	 〈Term〉 :== [“−”]〈SubTerm〉		                                        */
+/*         	 〈Term〉 :== [“−”]〈SubTerm〉                                   */
 /*                                                                          */
-/*       								    */
+/*       								                                    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -506,7 +699,6 @@ PRIVATE void parseCompoundTerm( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
-
 PRIVATE void parseTerm( void )
 {
 	if(CurrentToken.code== SUBTRACT){
@@ -517,11 +709,11 @@ PRIVATE void parseTerm( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseSubTerm implements:                          		            */
+/*  parseSubTerm implements:                          		                */
 /*                                                                          */
-/*    〈SubTerm〉 :==〈Identifier〉 |<INTCONST> | "(" <EXPRESSION〉 ")"       */
+/*    〈SubTerm〉 :==〈Identifier〉 |<INTCONST> | "(" <EXPRESSION〉 ")"      */
 /*                                                                          */
-/*       								    */
+/*       								                                    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -533,7 +725,6 @@ PRIVATE void parseTerm( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
-
 PRIVATE void parseSubTerm( void )
 {
 	if ( CurrentToken.code == IDENTIFIER )  {
@@ -552,9 +743,9 @@ PRIVATE void parseSubTerm( void )
 /*                                                                          */
 /*  parseBooleanExpression implements:                                      */
 /*                                                                          */
-/*     〈BooleanExpression〉:==〈Expression〉 〈RelOp〉〈Expression〉    		       */
+/*     〈BooleanExpression〉:==〈Expression〉 〈RelOp〉〈Expression〉        */
 /*                                                                          */
-/*       								    */
+/*       								                                    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -566,7 +757,6 @@ PRIVATE void parseSubTerm( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
-
 PRIVATE void parseBooleanExpression( void )
 {
 	parseExpression();
@@ -577,11 +767,11 @@ PRIVATE void parseBooleanExpression( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseAddOp implements:                                             */
+/*  parseAddOp implements:                                                  */
 /*                                                                          */
-/*       〈AddOp〉:==   “+”|“−”				                    */
+/*       〈AddOp〉:==   “+”|“−”				                                */
 /*                                                                          */
-/*       								    */
+/*       								                                    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -593,7 +783,6 @@ PRIVATE void parseBooleanExpression( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
-
 PRIVATE void parseAddOp( void )
 {
     if ( CurrentToken.code == ADD ){
@@ -603,15 +792,13 @@ PRIVATE void parseAddOp( void )
     }  
 }
 
-
-
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseMultOp implements:                                             */
+/*  parseMultOp implements:                                                 */
 /*                                                                          */
-/*       〈MultOp〉:==   “*”|“/”				                    */
+/*       〈MultOp〉:==   “*”|“/”				                            */
 /*                                                                          */
-/*       								    */
+/*       								                                    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -623,7 +810,6 @@ PRIVATE void parseAddOp( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
-
 PRIVATE void parseMultOp( void )
 {
     if ( CurrentToken.code == MULTIPLY ){
@@ -637,11 +823,11 @@ PRIVATE void parseMultOp( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseRelOp implements:                                             */
+/*  parseRelOp implements:                                                  */
 /*                                                                          */
-/*       〈RelOp〉 :==   “=”|“<=”|“>=”|“<”|“>”		                    */
+/*       〈RelOp〉 :==   “=”|“<=”|“>=”|“<”|“>”		                        */
 /*                                                                          */
-/*       								    */
+/*       								                                    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -653,7 +839,6 @@ PRIVATE void parseMultOp( void )
 /*    Side Effects: Lookahead token advanced.                               */
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
-
 PRIVATE void parseRelOp( void )
 {
     if ( CurrentToken.code == EQUALITY){
