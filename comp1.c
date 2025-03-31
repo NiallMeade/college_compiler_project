@@ -106,12 +106,12 @@ PRIVATE void ReadToEndOfFile( void );
 PRIVATE void parseTerm(void);
 PRIVATE void parseReadStatement( void );
 PRIVATE void parseCompoundTerm( void );
-PRIVATE void parseRelOp( void );
+PRIVATE int parseRelOp( void );
 PRIVATE void parseMultOp( void );
 PRIVATE void parseAddOp( void );
 PRIVATE void parseWriteStatement( void );
 PRIVATE void parseSubTerm( void );
-PRIVATE void parseBooleanExpression( void );
+PRIVATE int parseBooleanExpression( void );
 PRIVATE void parseIfStatement( void );
 PRIVATE void Synchronise( SET *F, SET *FB );
 PRIVATE void SetupSets( void );
@@ -271,10 +271,14 @@ PRIVATE void parseExpression( void )
 
 PRIVATE void parseWhileStatement( void )
 {
+    int Label1, L2BackPatchLoc;
 	Accept(WHILE);
-	parseBooleanExpression();
+    Label1 = CurrentCodeAddress();
+    L2BackPatchLoc = parseBooleanExpression();
 	Accept(DO);
 	parseBlock();
+    Emit(I_BR, Label1);
+    BackPatch(L2BackPatchLoc, CurrentCodeAddress());
 }
 
 /*--------------------------------------------------------------------------*/
@@ -354,14 +358,18 @@ PRIVATE void parseParamList( void )
 
 PRIVATE void parseDeclarations( void )
 {
+    int num_new_vars = 0;
     Accept( VAR );
     makeSymbolTableEntry(STYPE_VARIABLE);
     Accept( IDENTIFIER );
+    num_new_vars++;
     while( CurrentToken.code == COMMA){
         Accept( COMMA );
         makeSymbolTableEntry(STYPE_VARIABLE);
         Accept( IDENTIFIER );
+        num_new_vars++;
     }
+    Emit(I_INC, num_new_vars);
     Accept( SEMICOLON );
 }
 
@@ -673,12 +681,16 @@ PRIVATE void parseSubTerm( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void parseBooleanExpression( void )
+PRIVATE int parseBooleanExpression( void )
 {
+    int BackPatchAddr, RelOpInstruction;
 	parseExpression();
-	parseRelOp();
-    	parseExpression();
-  
+	RelOpInstruction = parseRelOp();
+    parseExpression();
+    _Emit(I_SUB);
+    BackPatchAddr = CurrentCodeAddress();
+    Emit(RelOpInstruction, 9999);
+    return BackPatchAddr;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -760,21 +772,31 @@ PRIVATE void parseMultOp( void )
 /*                                                                          */
 /*--------------------------------------------------------------------------*/
 
-PRIVATE void parseRelOp( void )
+PRIVATE int parseRelOp( void )
 {
+    int RelOpInstruction;
     if ( CurrentToken.code == EQUALITY){
+        RelOpInstruction = I_BZ;
     	Accept( EQUALITY );
-    	}
-    	else if(CurrentToken.code == LESSEQUAL )
-    	{
-    		Accept( LESSEQUAL );
-    	} else if (CurrentToken.code ==GREATEREQUAL){
-    	    	Accept( GREATEREQUAL);
-    	} else if (CurrentToken.code ==GREATER){
-    	    	Accept( GREATER );
-    	} else if (CurrentToken.code ==LESS){
-    	    	Accept( LESS);
-    	}
+    }
+    else if(CurrentToken.code == LESSEQUAL )
+    {
+        RelOpInstruction = I_BG;
+        Accept( LESSEQUAL );
+    } else if (CurrentToken.code ==GREATEREQUAL)
+    {
+        RelOpInstruction = I_BL;
+        Accept( GREATEREQUAL);
+    } else if (CurrentToken.code ==GREATER)
+    {
+        RelOpInstruction = I_BLZ;
+        Accept( GREATER );
+    } else if (CurrentToken.code ==LESS)
+    {
+        RelOpInstruction = I_BGZ;
+        Accept( LESS);
+    }
+    return RelOpInstruction;
 }
 
 /*--------------------------------------------------------------------------*/
