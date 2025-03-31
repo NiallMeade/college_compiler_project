@@ -237,10 +237,12 @@ PRIVATE void SetupSets( void )
 /*--------------------------------------------------------------------------*/
 PRIVATE void parseExpression( void )
 {
+	int op;
 	parseCompoundTerm();
-  	while(CurrentToken.code== ADD || CurrentToken.code== SUBTRACT){ /*TODO Find better way to do this*/
+  	while((op=CurrentToken.code)== ADD || op== SUBTRACT){ /*TODO Find better way to do this*/
   	parseAddOp();
   	parseCompoundTerm();
+  	op==ADD ? _Emit(I_ADD): _Emit(I_SUB);
   	}
 }
 
@@ -548,10 +550,12 @@ PRIVATE void parseWriteStatement( void )
 
 PRIVATE void parseCompoundTerm( void )
 {
+	int op;
 	parseTerm();
-  	while(CurrentToken.code== MULTIPLY || CurrentToken.code== DIVIDE){ /*TODO Find better way to do this*/
+  	while((op=CurrentToken.code)== MULTIPLY || op== DIVIDE){ /*TODO Find better way to do this*/
   	parseMultOp();
   	parseTerm();
+  	op==MULTIPLY ? _Emit(I_MULT): _Emit(I_DIV);
   	}
 }
 
@@ -576,10 +580,14 @@ PRIVATE void parseCompoundTerm( void )
 
 PRIVATE void parseTerm( void )
 {
+	int negate=0;
 	if(CurrentToken.code== SUBTRACT){
+		negate=1;
 		Accept( SUBTRACT );
   	}
   	parseSubTerm();
+  	
+  	if(negate){ _Emit(I_NEG);}
 }
 
 /*--------------------------------------------------------------------------*/
@@ -604,15 +612,22 @@ PRIVATE void parseTerm( void )
 PRIVATE void parseSubTerm( void )
 {
     SYMBOL *var;
-	if ( CurrentToken.code == IDENTIFIER )  {
-        var = LookupSymbol();
-	    Accept( IDENTIFIER );
+	if ( CurrentToken.code == LEFTPARENTHESIS )  {
+		Accept(LEFTPARENTHESIS);
+		parseExpression();
+		Accept(RIGHTPARENTHESIS);
   	} else if(CurrentToken.code == INTCONST){
-        Accept(INTCONST);
-    } else{
-  	    Accept(LEFTPARENTHESIS);
-  	    parseExpression();
-  	    Accept(RIGHTPARENTHESIS);
+  		Emit(I_LOADI,CurrentToken.value);
+        	Accept(INTCONST);
+    	} else{
+		var = LookupSymbol();
+		if(var!=NULL && var->type== STYPE_VARIABLE){
+			Emit(I_LOADA,var->address);
+		}else{
+			Error("variable undeclared", CurrentToken.pos);
+		}
+		
+		Accept( IDENTIFIER );
   	}
 }
 
