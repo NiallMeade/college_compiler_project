@@ -376,7 +376,6 @@ PRIVATE void parseDeclarations( void )
 PRIVATE void parseActualParameter( void )
 {
     if( CurrentToken.code == IDENTIFIER){
-    /*makeSymbolTableEntry(STYPE_VALUEPAR);*/
         SYMBOL *var = LookupSymbol();
         Accept( IDENTIFIER );
     } else{
@@ -449,13 +448,30 @@ PRIVATE void parseIfStatement( void )
 
 PRIVATE void parseReadStatement( void )
 {
+    SYMBOL *var;
 	Accept(READ);
 	Accept(LEFTPARENTHESIS);
-	Accept(IDENTIFIER);
+    var = LookupSymbol();
+    if( var != NULL && (var->type == STYPE_VARIABLE || var->type == STYPE_LOCALVAR)){
+	    Accept(IDENTIFIER);
+        _Emit(I_READ);
+        Emit(I_STOREA, var->address);
+    } else{
+        Error("Identifier is not defined or not of type variable", CurrentToken.pos);
+        KillCodeGeneration();
+    }
 	while(CurrentToken.code== COMMA){
 		Accept( COMMA );
-		Accept(IDENTIFIER);
-  	}
+        var = LookupSymbol();
+        if( var != NULL && (var->type == STYPE_VARIABLE || var->type == STYPE_LOCALVAR)){
+            Accept(IDENTIFIER);
+            _Emit(I_READ);
+            Emit(I_STOREA, var->address);
+        } else{
+            Error("Identifier is not defined or not of type variable", CurrentToken.pos);
+            KillCodeGeneration();
+        }  	
+    }
   	Accept(RIGHTPARENTHESIS);
 }
 
@@ -559,9 +575,11 @@ PRIVATE void parseWriteStatement( void )
 	Accept(WRITE);
 	Accept(LEFTPARENTHESIS);
 	parseExpression();
+    _Emit(I_WRITE);
 	while(CurrentToken.code== COMMA){
 		Accept( COMMA );
 		parseExpression();
+        _Emit(I_WRITE);
   	}
   	Accept(RIGHTPARENTHESIS);
 }
