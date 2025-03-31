@@ -411,14 +411,21 @@ PRIVATE void parseFormalParam( void )
 
 PRIVATE void parseIfStatement( void )
 {
+    int L2BackPatchLoc, L3BackPatchLoc;
 	Accept(IF);
-	parseBooleanExpression();
+	L2BackPatchLoc = parseBooleanExpression();
 	Accept(THEN);
 	parseBlock();
-	if(CurrentToken.code== ELSE){
+    if(CurrentToken.code == ELSE){
+        L3BackPatchLoc = CurrentCodeAddress();
+        Emit(I_BR, 999);
 		Accept(ELSE);
+        BackPatch( L2BackPatchLoc, CurrentCodeAddress());
 		parseBlock();
-  	}
+        BackPatch( L3BackPatchLoc, CurrentCodeAddress());
+  	} else{
+        BackPatch( L2BackPatchLoc, CurrentCodeAddress());
+    }
 }
 
 /*--------------------------------------------------------------------------*/
