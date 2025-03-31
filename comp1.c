@@ -41,7 +41,7 @@
 #include "global.h"
 #include "scanner.h"
 #include "line.h"
-
+#include "symbol.h"
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -113,6 +113,8 @@ PRIVATE void parseBooleanExpression( void );
 PRIVATE void parseIfStatement( void );
 PRIVATE void Synchronise( SET *F, SET *FB );
 PRIVATE void SetupSets( void );
+PRIVATE void makeSymbolTableEntry( int symType );
+PRIVATE SYMBOL *LookupSymbol( void );
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -202,7 +204,7 @@ PRIVATE void SetupSets( void )
 {
     InitSet( &ProgramFS_aug, 3, VAR, PROCEDURE, BEGIN);
     InitSet( &ProgramSS_aug, 2, PROCEDURE, BEGIN);
-    InitSet( &ProgramFBS, 3, ENDOFINPUT, END, ENDOFSynchronisePROGRAM);
+    InitSet( &ProgramFBS, 3, ENDOFINPUT, END, ENDOFPROGRAM);
 
     InitSet( &ProcedureFS_aug, 3, VAR, PROCEDURE, BEGIN);
     InitSet( &ProcedureSS_aug, 2, PROCEDURE, BEGIN);
@@ -292,7 +294,8 @@ PRIVATE void parseProcDeclarations( void )
     Accept( PROCEDURE );
     makeSymbolTableEntry(STYPE_PROCEDURE);
     Accept( IDENTIFIER );
-    
+    scope++;
+
     if( CurrentToken.code == LEFTPARENTHESIS ) parseParamList();
 
     Accept( SEMICOLON );
@@ -310,6 +313,9 @@ PRIVATE void parseProcDeclarations( void )
     parseBlock();
 
     Accept( SEMICOLON );
+
+    RemoveSymbols( scope );
+    scope--;
 }
 
 PRIVATE void parseBlock( void )
@@ -347,7 +353,7 @@ PRIVATE void parseDeclarations( void )
     Accept( IDENTIFIER );
     while( CurrentToken.code == COMMA){
         Accept( COMMA );
-    makeSymbolTableEntry(STYPE_VARIABLE);
+        makeSymbolTableEntry(STYPE_VARIABLE);
         Accept( IDENTIFIER );
     }
     Accept( SEMICOLON );
@@ -356,7 +362,8 @@ PRIVATE void parseDeclarations( void )
 PRIVATE void parseActualParameter( void )
 {
     if( CurrentToken.code == IDENTIFIER){
-    makeSymbolTableEntry(STYPE_VALUEPAR);//TODO
+    /*makeSymbolTableEntry(STYPE_VALUEPAR);*/
+        SYMBOL *var = LookupSymbol();
         Accept( IDENTIFIER );
     } else{
         parseExpression();
@@ -453,6 +460,7 @@ PRIVATE void parseStatement( void )
 
 PRIVATE void parseSimpleStatement( void )
 {
+    SYMBOL *var = LookupSymbol();
     Accept( IDENTIFIER );
     parseRestOfStatement();
 }
@@ -595,15 +603,16 @@ PRIVATE void parseTerm( void )
 
 PRIVATE void parseSubTerm( void )
 {
+    SYMBOL *var;
 	if ( CurrentToken.code == IDENTIFIER )  {
-	Accept( IDENTIFIER );
+        var = LookupSymbol();
+	    Accept( IDENTIFIER );
   	} else if(CurrentToken.code == INTCONST){
         Accept(INTCONST);
-    	} else{
-  	Accept(LEFTPARENTHESIS);
-  	parseExpression();
-  	Accept(RIGHTPARENTHESIS);
-  	
+    } else{
+  	    Accept(LEFTPARENTHESIS);
+  	    parseExpression();
+  	    Accept(RIGHTPARENTHESIS);
   	}
 }
 
@@ -856,24 +865,46 @@ PRIVATE void ReadToEndOfFile( void )
     }
 }
 
-PRIVATE void makeSymbolTableEntry(int symType){
-SYMBOL oldsptr=NULL;
-if(CurrentToken.code==IDENTIFIER){
- 	if(NULL == (oldsptr=Probe(CurrentToken.s,&hashindex)) || oldsptr.scope< scope){
- 		if(oldsptr==NULL) {cptr=CurrentToken.s; }else{cptr= oldstr.s;}
- 		if((newptrs=EnterSymbol(cptr,hashindex))==NULL){
- 		/*fatal error compiler must exit*/
- 		}else{ 
- 		if(olsptr==NULL){ PreserveString();}
- 		newsptr.scope=scope;
- 		newsptr.type=symType;
- 		if(symType==STYPE_VARIABLE){
- 		newsptr.address=varaddress++;
- 		}else{
- 		newsptr.address=-1;
- 		}
- 		
- 		}
- 	}
+PRIVATE void makeSymbolTableEntry(int symType) {
+    SYMBOL *oldsptr=NULL;
+    SYMBOL *newsptr=NULL;
+    char *cptr;
+    int hashindex;
+    if (CurrentToken.code==IDENTIFIER) {
+        if (NULL == (oldsptr = Probe(CurrentToken.s, &hashindex)) || oldsptr->scope < scope) {
+            if (oldsptr==NULL) cptr = CurrentToken.s;
+            else cptr= oldsptr->s;
+            if ((newsptr = EnterSymbol(cptr, hashindex)) == NULL) {
+                /*fatal error compiler must exit*/
+            } else { 
+                if (oldsptr==NULL) PreserveString();
+                newsptr->scope = scope;
+                newsptr->type = symType;
+                if (symType == STYPE_VARIABLE) {
+                    newsptr->address = varaddress;
+                    varaddress++;
+                } else {
+                    newsptr->address = -1;
+                }
+            
+            }
+        } else {
+            Error("Identifier previously declared", CurrentToken.pos);
+            KillCodeGeneration();
+        }
+    }
 }
 
+PRIVATE SYMBOL *LookupSymbol( void ) {
+    SYMBOL *sptr;
+
+    if (CurrentToken.code == IDENTIFIER) {
+        sptr = Probe( CurrentToken.s, NULL);
+        if (sptr == NULL) {
+            Error("Identifier not declared", CurrentToken.pos);
+            KillCodeGeneration();
+        }
+    }
+    else sptr = NULL;
+    return sptr;
+}
