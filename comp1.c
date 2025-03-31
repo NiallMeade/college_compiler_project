@@ -42,6 +42,7 @@
 #include "scanner.h"
 #include "line.h"
 #include "symbol.h"
+#include "code.h"
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -51,6 +52,7 @@
 
 PRIVATE FILE *InputFile;           /*  CPL source comes from here.          */
 PRIVATE FILE *ListFile;            /*  For nicely-formatted syntax errors.  */
+PRIVATE FILE *CodeFile;           /*  Output machine code.          */
 
 PRIVATE TOKEN  CurrentToken;       /*  parser lookahead token.  Updated by  */
                                    /*  routine Accept (below).  Must be     */
@@ -94,8 +96,8 @@ PRIVATE void parseWhileStatement( void );
 PRIVATE void parseIfStatement( void );
 PRIVATE void parseReadStatement( void );
 PRIVATE void parseWriteStatement( void );
-PRIVATE void parseRestOfStatement( void );
-PRIVATE void parseProcCallList( void );
+PRIVATE void parseRestOfStatement( SYMBOL *target );
+PRIVATE void parseProcCallList( SYMBOL *target );
 PRIVATE void parseAssignment( void );
 PRIVATE void parseActualParameter( void );
 PRIVATE int  OpenFiles( int argc, char *argv[] );
@@ -128,9 +130,11 @@ PUBLIC int main ( int argc, char *argv[] )
 {
     if ( OpenFiles( argc, argv ) )  {
         InitCharProcessor( InputFile, ListFile );
+        InitCodeGenerator( CodeFile );
         CurrentToken = GetToken();
         SetupSets();
         parseProgram();
+        WriteCodeFile();
         fclose( InputFile );
         fclose( ListFile );
         return  EXIT_SUCCESS;
@@ -240,9 +244,9 @@ PRIVATE void parseExpression( void )
 	int op;
 	parseCompoundTerm();
   	while((op=CurrentToken.code)== ADD || op== SUBTRACT){ /*TODO Find better way to do this*/
-  	parseAddOp();
-  	parseCompoundTerm();
-  	op==ADD ? _Emit(I_ADD): _Emit(I_SUB);
+        parseAddOp();
+        parseCompoundTerm();
+        op==ADD ? _Emit(I_ADD): _Emit(I_SUB);
   	}
 }
 
@@ -462,24 +466,43 @@ PRIVATE void parseStatement( void )
 
 PRIVATE void parseSimpleStatement( void )
 {
-    SYMBOL *var = LookupSymbol();
+    SYMBOL *target = LookupSymbol();
     Accept( IDENTIFIER );
-    parseRestOfStatement();
+    parseRestOfStatement( target );
 }
 
-PRIVATE void parseRestOfStatement( void )
+PRIVATE void parseRestOfStatement( SYMBOL *target )
 {
     Synchronise(&RestOfStatementFS_aug, &RestOfStatementFBS);
-    if(CurrentToken.code == SEMICOLON){
-        return;
-    } else if(CurrentToken.code == LEFTPARENTHESIS){
-        parseProcCallList();
-    } else{
+
+    switch ( CurrentToken.code )
+    {
+    case LEFTPARENTHESIS:
+        parseProcCallList( target );
+    case SEMICOLON:
+        if ( target != NULL && target->type == STYPE_PROCEDURE){
+            Emit( I_CALL, target->address);
+        } else {
+            Error("Identifier not a declared procedure.", CurrentToken.pos);
+            KillCodeGeneration();
+        }
+        break;
+    case ASSIGNMENT:
+    default:
         parseAssignment();
+        if ( target != NULL && target->type == STYPE_VARIABLE ){
+            Emit(I_STOREA, target->address);
+        } else{
+            Error("Identifier not a declared variable.", CurrentToken.pos);
+            KillCodeGeneration();
+        }
+        break;
     }
+
+
 }
 
-PRIVATE void parseProcCallList( void )
+PRIVATE void parseProcCallList( SYMBOL *target )
 {
     Accept( LEFTPARENTHESIS );
     parseActualParameter();
@@ -828,8 +851,8 @@ PRIVATE void Accept( int ExpectedToken )
 PRIVATE int  OpenFiles( int argc, char *argv[] )
 {
 
-    if ( argc != 3 )  {
-        fprintf( stderr, "%s <inputfile> <listfile>\n", argv[0] );
+    if ( argc != 4 )  {
+        fprintf( stderr, "%s <inputfile> <listfile> <codefile>\n", argv[0] );
         return 0;
     }
 
@@ -841,6 +864,12 @@ PRIVATE int  OpenFiles( int argc, char *argv[] )
     if ( NULL == ( ListFile = fopen( argv[2], "w" ) ) )  {
         fprintf( stderr, "cannot open \"%s\" for output\n", argv[2] );
         fclose( InputFile );
+        return 0;
+    }
+
+    if ( NULL == ( CodeFile = fopen( argv[3], "w" ) ) )  {
+        fprintf( stderr, "cannot open \"%s\" for output\n", argv[3] );
+        fclose( CodeFile );
         return 0;
     }
 
