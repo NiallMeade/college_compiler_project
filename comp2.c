@@ -115,7 +115,7 @@ PRIVATE int parseBooleanExpression( void );
 PRIVATE void parseIfStatement( void );
 PRIVATE void Synchronise( SET *F, SET *FB );
 PRIVATE void SetupSets( void );
-PRIVATE void makeSymbolTableEntry( int symType );
+/* PRIVATE void makeSymbolTableEntry( int symType ); */
 PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varAddress );
 PRIVATE SYMBOL *LookupSymbol( void );
 
@@ -171,7 +171,7 @@ PRIVATE void parseProgram( void )
 {
     
     Accept( PROGRAM );  
-    makeSymbolTableEntry(STYPE_PROGRAM);
+    makeSymbolTableEntry(STYPE_PROGRAM, NULL);
     Accept( IDENTIFIER );
     Accept(SEMICOLON);
     Synchronise( &ProgramFS_aug, &ProgramFBS);
@@ -309,7 +309,7 @@ PRIVATE void parseProcDeclarations( void )
     procedure = makeSymbolTableEntry(STYPE_PROCEDURE, NULL);
     Accept( IDENTIFIER );
     BackPatchAddr = CurrentCodeAddress();
-    Emit(I_BR. 0);
+    Emit(I_BR, 0);
     
     if (procedure.address == NULL) {
         /* ERROR KILL CODDEGEN?*/
@@ -525,7 +525,19 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
     switch ( CurrentToken.code )
     {
     case LEFTPARENTHESIS:
+        /* need to find the current scope here, */
+        /* and if its more than 0, then somehow take all the lower 
+        scope locals*/
+        int procedure_scope = target->scope;
+        _Emit(I_PUSHFP);
+        _Emit(I_BSF);
+        _Emit(I_CALL);
+
+        if (procedure_scope > 0) {
+            
+        }
         parseProcCallList( target );
+
     case SEMICOLON:
         if ( target != NULL && target->type == STYPE_PROCEDURE){
             Emit( I_CALL, target->address);
@@ -546,7 +558,7 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
             } else {
                 _Emit(I_LOADFP);
                 for (i = 0;  i < diffScope - 1; i++) {
-                    _Emit(I_STORESP, target->address);
+                    Emit(I_STORESP, target->address);
                 }
             }
 
@@ -716,7 +728,7 @@ PRIVATE void parseSubTerm( void )
                 } else{
                     _Emit(I_LOADFP);
                     for (i = 0; i < diffScope - 1; i++) {
-                        _Emit(I_LOADSP, var->address);
+                        Emit(I_LOADSP, var->address);
                     }
                 }
             }
@@ -998,7 +1010,7 @@ PRIVATE void ReadToEndOfFile( void )
     }
 }
 
-PRIVATE void makeSymbolTableEntry(int symType, int *varaddress) {
+PRIVATE void makeSymbolTableEntry(int symType) {
     SYMBOL *oldsptr=NULL;
     SYMBOL *newsptr=NULL;
     char *cptr;
