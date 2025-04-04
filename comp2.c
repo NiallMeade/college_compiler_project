@@ -311,10 +311,10 @@ PRIVATE void parseProcDeclarations( void )
     BackPatchAddr = CurrentCodeAddress();
     Emit(I_BR, 0);
     
-    if (procedure.address == NULL) {
+    if (procedure->address == NULL) {
         /* ERROR KILL CODDEGEN?*/
     } else {
-        procedure.address = CurrentCodeAddress();
+        procedure->address = CurrentCodeAddress();
 
     }
 
@@ -330,7 +330,7 @@ PRIVATE void parseProcDeclarations( void )
     Synchronise(&ProcedureSS_aug, &ProcedureFBS);
     while (CurrentToken.code == PROCEDURE)
     {
-        parseProcDeclarations();
+        parseProcDeclarations(); /* TODO - implement Static Lick? */
         Synchronise(&ProcedureSS_aug, &ProcedureFBS);
     }
 
@@ -376,12 +376,12 @@ PRIVATE void parseDeclarations( void )
 {
     int num_new_vars = 0;
     Accept( VAR );
-    makeSymbolTableEntry(STYPE_VARIABLE);
+    makeSymbolTableEntry(STYPE_VARIABLE, NULL);
     Accept( IDENTIFIER );
     num_new_vars++;
     while( CurrentToken.code == COMMA){
         Accept( COMMA );
-        makeSymbolTableEntry(STYPE_VARIABLE);
+        makeSymbolTableEntry(STYPE_VARIABLE, NULL);
         Accept( IDENTIFIER );
         num_new_vars++;
     }
@@ -537,7 +537,6 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
             
         }
         parseProcCallList( target );
-
     case SEMICOLON:
         if ( target != NULL && target->type == STYPE_PROCEDURE){
             Emit( I_CALL, target->address);
@@ -558,8 +557,9 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
             } else {
                 _Emit(I_LOADFP);
                 for (i = 0;  i < diffScope - 1; i++) {
-                    Emit(I_STORESP, target->address);
+                    _Emit(I_STORESP);
                 }
+                Emit(I_STORESP, target->address);
             }
 
         } else{
@@ -728,8 +728,9 @@ PRIVATE void parseSubTerm( void )
                 } else{
                     _Emit(I_LOADFP);
                     for (i = 0; i < diffScope - 1; i++) {
-                        Emit(I_LOADSP, var->address);
+                        _Emit(I_LOADSP);
                     }
+                    Emit(I_LOADSP, var->address);
                 }
             }
 
@@ -1009,8 +1010,8 @@ PRIVATE void ReadToEndOfFile( void )
         while ( CurrentToken.code != ENDOFINPUT )  CurrentToken = GetToken();
     }
 }
-
-PRIVATE void makeSymbolTableEntry(int symType) {
+/*
+PRIVATE void makeSymbolTableEntry(int symType, int *varaddress) {
     SYMBOL *oldsptr=NULL;
     SYMBOL *newsptr=NULL;
     char *cptr;
@@ -1020,7 +1021,8 @@ PRIVATE void makeSymbolTableEntry(int symType) {
             if (oldsptr==NULL) cptr = CurrentToken.s;
             else cptr= oldsptr->s;
             if ((newsptr = EnterSymbol(cptr, hashindex)) == NULL) {
-                /*fatal error compiler must exit*/
+                /* fatal error compiler must exit */
+                /*
             } else { 
                 if (oldsptr==NULL) PreserveString();
                 newsptr->scope = scope;
@@ -1031,7 +1033,7 @@ PRIVATE void makeSymbolTableEntry(int symType) {
                 } else {
                     newsptr->address = -1;
                 }
-            
+                
             }
         } else {
             Error("Identifier previously declared", CurrentToken.pos);
@@ -1039,8 +1041,10 @@ PRIVATE void makeSymbolTableEntry(int symType) {
         }
     }
 }
+*/
 
-PRIVATE SYMBOL *makeSymbolTableEntryRet(int symType, int *varaddress) {
+
+PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddress) {
     SYMBOL *oldsptr=NULL;
     SYMBOL *newsptr=NULL;
     char *cptr;
