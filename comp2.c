@@ -76,7 +76,6 @@ PRIVATE SET RestOfStatementFBS;
 #define GLOBAL_VAR 0
 int scope=1;/* global variables have scope 1*/ 
 int varaddress=0;
-int DL_count = 0;
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -179,7 +178,8 @@ PRIVATE void parseProgram( void )
     Accept(SEMICOLON);
     Synchronise( &ProgramFS_aug, &ProgramFBS);
     if ( CurrentToken.code == VAR ) { 
-    parseDeclarations(GLOBAL_VAR);
+    int varaddress = parseDeclarations(GLOBAL_VAR);
+        Emit(I_INC, varaddress);
     }
     Synchronise( &ProgramSS_aug, &ProgramFBS);
     while (CurrentToken.code == PROCEDURE)
@@ -197,6 +197,7 @@ PRIVATE void parseProgram( void )
     parseBlock();
     Accept( ENDOFPROGRAM );     /* Token "." has name ENDOFPROGRAM          */
     Accept( ENDOFINPUT );
+    _Emit(I_HALT);
 }
 
 PRIVATE void Synchronise( SET *F, SET *FB )
@@ -353,13 +354,13 @@ PRIVATE void parseProcDeclarations( void )
         parseProcDeclarations(); /* TODO - implement Static Lick? */
         Synchronise(&ProcedureSS_aug, &ProcedureFBS);
     }
-
+    
     parseBlock();
-
+    
     Accept( SEMICOLON );
     
-    Emit(I_DEC, locals);
-    _Emit(I_RSF); 
+    
+    /* Emit(I_DEC, locals); */
     _Emit(I_RET); 
     BackPatch(BackPatchAddr, CurrentCodeAddress());
     RemoveSymbols( scope );
@@ -400,11 +401,11 @@ PRIVATE int parseDeclarations( int var_type_check )
     
     Accept( VAR );
     if (var_type_check == LOCAL_VAR) {
-    makeSymbolTableEntry(STYPE_LOCALVAR, num_new_vars + 1);
+    makeSymbolTableEntry(STYPE_LOCALVAR, varaddress + num_new_vars + 1);
 
     } else {    
-        makeSymbolTableEntry(STYPE_VARIABLE, NULL);
-    
+        makeSymbolTableEntry(STYPE_VARIABLE, varaddress + 1);
+        
     }
     Accept( IDENTIFIER );
     num_new_vars++;
@@ -412,11 +413,11 @@ PRIVATE int parseDeclarations( int var_type_check )
     while( CurrentToken.code == COMMA){
         Accept( COMMA );
         if (var_type_check == LOCAL_VAR){
-            makeSymbolTableEntry(STYPE_LOCALVAR, num_new_vars + 1);
+            makeSymbolTableEntry(STYPE_LOCALVAR, varaddress + num_new_vars + 1);
 
         }
         else{
-            makeSymbolTableEntry(STYPE_VARIABLE, NULL);
+            makeSymbolTableEntry(STYPE_VARIABLE, varaddress + 1);
 
         }
         Accept( IDENTIFIER );
@@ -571,7 +572,6 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
         int procedure_scope = target->scope;
         _Emit(I_PUSHFP);
         _Emit(I_BSF);
-        _Emit(I_CALL);
 
         if (procedure_scope > 0) {
             
@@ -580,6 +580,7 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
     case SEMICOLON:
         if ( target != NULL && target->type == STYPE_PROCEDURE){
             Emit( I_CALL, target->address);
+            _Emit(I_RSF);
         } else {
             Error("Identifier not a declared procedure.", CurrentToken.pos);
             KillCodeGeneration();
@@ -591,7 +592,10 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
         if ( target != NULL && target->type == STYPE_VARIABLE ){
             Emit(I_STOREA, target->address);
         } else if (target != NULL && target->type == STYPE_LOCALVAR){ /* TODO */
-            diffScope = target->scope - 1; /* just get the scope and compare to baseline scope? */
+                Emit(I_STORESP, target->address);
+            
+            /* diffScope = target->scope - 1; /* just get the scope and compare to baseline scope? */
+            /* 
             if (diffScope == 0){
                 Emit(I_STOREFP, target->address);
             } else {
@@ -601,7 +605,7 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
                 }
                 Emit(I_STORESP, target->address);
             }
-
+            */
         } else{
             Error("Identifier not a declared variable.", CurrentToken.pos);
             KillCodeGeneration();
@@ -757,12 +761,15 @@ PRIVATE void parseSubTerm( void )
         	Accept(INTCONST);
     	} else{
 		var = LookupSymbol();
-		if (var!=NULL){
+		if (var != NULL){
 
             if (var->type == STYPE_VARIABLE){
-			Emit(I_LOADA,var->address);
+			Emit(I_LOADA, var->address);
+            
             } else if (var->type == STYPE_LOCALVAR ) {
-                diffScope = scope - var->scope;
+			Emit(I_LOADA, var->address);
+
+                /* diffScope = scope - var->scope;
                 if (diffScope == 0){
                     Emit(I_LOADFP, var->address);
                 } else{
@@ -771,7 +778,8 @@ PRIVATE void parseSubTerm( void )
                         _Emit(I_LOADSP);
                     }
                     Emit(I_LOADSP, var->address);
-                }
+                } 
+                    */
             }
 
 		}else{
