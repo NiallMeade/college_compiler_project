@@ -72,8 +72,11 @@ PRIVATE SET BlockFBS;
 PRIVATE SET RestOfStatementFS_aug;
 PRIVATE SET RestOfStatementFBS;
 
+#define LOCAL_VAR 1
+#define GLOBAL_VAR 0
 int scope=1;/* global variables have scope 1*/ 
 int varaddress=0;
+int DL_count = 0;
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -83,7 +86,7 @@ int varaddress=0;
 
 PRIVATE int  OpenFiles( int argc, char *argv[] );
 PRIVATE void parseProgram( void );
-PRIVATE void parseDeclarations( void );
+PRIVATE int parseDeclarations( int var_type_check );
 PRIVATE void parseProcDeclarations( void );
 PRIVATE void parseBlock( void );
 PRIVATE void parseParamList( void );
@@ -116,9 +119,9 @@ PRIVATE void parseIfStatement( void );
 PRIVATE void Synchronise( SET *F, SET *FB );
 PRIVATE void SetupSets( void );
 /* PRIVATE void makeSymbolTableEntry( int symType ); */
-PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varAddress );
+PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varAddy );
 PRIVATE SYMBOL *LookupSymbol( void );
-
+ 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
 /*  Main: Smallparser entry point.  Sets up parser globals (opens input and */
@@ -176,11 +179,13 @@ PRIVATE void parseProgram( void )
     Accept(SEMICOLON);
     Synchronise( &ProgramFS_aug, &ProgramFBS);
     if ( CurrentToken.code == VAR ) { 
-    parseDeclarations();
+    parseDeclarations(GLOBAL_VAR);
     }
     Synchronise( &ProgramSS_aug, &ProgramFBS);
     while (CurrentToken.code == PROCEDURE)
     {
+        
+
         parseProcDeclarations();
         Synchronise( &ProgramSS_aug, &ProgramFBS);
     }
@@ -304,19 +309,23 @@ PRIVATE void parseProcDeclarations( void )
 {
     int BackPatchAddr;
     SYMBOL *procedure;
+    int locals; /* var to count locals for inc and dec space */
 
     Accept( PROCEDURE );
     procedure = makeSymbolTableEntry(STYPE_PROCEDURE, NULL);
     Accept( IDENTIFIER );
     BackPatchAddr = CurrentCodeAddress();
-    Emit(I_BR, 0);
+    Emit(I_BR, 999);
+    
     
     if (procedure->address == NULL) {
         /* ERROR KILL CODDEGEN?*/
+        KillCodeGeneration();
     } else {
         procedure->address = CurrentCodeAddress();
 
     }
+    
 
     scope++;
 
@@ -325,11 +334,22 @@ PRIVATE void parseProcDeclarations( void )
     Accept( SEMICOLON );
 
     Synchronise(&ProcedureFS_aug, &ProcedureFBS);
-    if ( CurrentToken.code == VAR )  parseDeclarations();
+    if ( CurrentToken.code == VAR ) {
+        int vars_addy_off;    
+         /* needs to build a stack frame, not sure about offset */
+        /* Emit(I_LOADFP, vars_addy_off);    */
+       
+        
+        locals = parseDeclarations(LOCAL_VAR); /* local variable call */
+        Emit(I_INC, locals);
+    } 
 
     Synchronise(&ProcedureSS_aug, &ProcedureFBS);
     while (CurrentToken.code == PROCEDURE)
     {
+        _Emit(I_LOADFP);
+        _Emit(I_PUSHFP);
+        _Emit(I_BSF);
         parseProcDeclarations(); /* TODO - implement Static Lick? */
         Synchronise(&ProcedureSS_aug, &ProcedureFBS);
     }
@@ -338,7 +358,9 @@ PRIVATE void parseProcDeclarations( void )
 
     Accept( SEMICOLON );
     
-    _Emit(I_RET); /* RETURN*/
+    Emit(I_DEC, locals);
+    _Emit(I_RSF); 
+    _Emit(I_RET); 
     BackPatch(BackPatchAddr, CurrentCodeAddress());
     RemoveSymbols( scope );
     scope--;
@@ -372,21 +394,39 @@ PRIVATE void parseParamList( void )
     Accept( RIGHTPARENTHESIS );
 }
 
-PRIVATE void parseDeclarations( void )
+PRIVATE int parseDeclarations( int var_type_check )
 {
     int num_new_vars = 0;
+    
     Accept( VAR );
-    makeSymbolTableEntry(STYPE_VARIABLE, NULL);
+    if (var_type_check == LOCAL_VAR) {
+    makeSymbolTableEntry(STYPE_LOCALVAR, num_new_vars + 1);
+
+    } else {    
+        makeSymbolTableEntry(STYPE_VARIABLE, NULL);
+    
+    }
     Accept( IDENTIFIER );
     num_new_vars++;
+    
     while( CurrentToken.code == COMMA){
         Accept( COMMA );
-        makeSymbolTableEntry(STYPE_VARIABLE, NULL);
+        if (var_type_check == LOCAL_VAR){
+            makeSymbolTableEntry(STYPE_LOCALVAR, num_new_vars + 1);
+
+        }
+        else{
+            makeSymbolTableEntry(STYPE_VARIABLE, NULL);
+
+        }
         Accept( IDENTIFIER );
         num_new_vars++;
+        
     }
-    Emit(I_INC, num_new_vars);
+    
+    /* Emit(I_INC, num_new_vars); */
     Accept( SEMICOLON );
+    return num_new_vars;
 }
 
 PRIVATE void parseActualParameter( void )
@@ -551,7 +591,7 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
         if ( target != NULL && target->type == STYPE_VARIABLE ){
             Emit(I_STOREA, target->address);
         } else if (target != NULL && target->type == STYPE_LOCALVAR){ /* TODO */
-            diffScope = target->scope - 0; /* just get the scope and compare to baseline scope? */
+            diffScope = target->scope - 1; /* just get the scope and compare to baseline scope? */
             if (diffScope == 0){
                 Emit(I_STOREFP, target->address);
             } else {
@@ -1010,41 +1050,8 @@ PRIVATE void ReadToEndOfFile( void )
         while ( CurrentToken.code != ENDOFINPUT )  CurrentToken = GetToken();
     }
 }
-/*
-PRIVATE void makeSymbolTableEntry(int symType, int *varaddress) {
-    SYMBOL *oldsptr=NULL;
-    SYMBOL *newsptr=NULL;
-    char *cptr;
-    int hashindex;
-    if (CurrentToken.code==IDENTIFIER) {
-        if (NULL == (oldsptr = Probe(CurrentToken.s, &hashindex)) || oldsptr->scope < scope) {
-            if (oldsptr==NULL) cptr = CurrentToken.s;
-            else cptr= oldsptr->s;
-            if ((newsptr = EnterSymbol(cptr, hashindex)) == NULL) {
-                /* fatal error compiler must exit */
-                /*
-            } else { 
-                if (oldsptr==NULL) PreserveString();
-                newsptr->scope = scope;
-                newsptr->type = symType;
-                if (symType == STYPE_VARIABLE || symType == STYPE_LOCALVAR) {
-                    newsptr->address = *varaddress;
-                    (*varaddress)++;
-                } else {
-                    newsptr->address = -1;
-                }
-                
-            }
-        } else {
-            Error("Identifier previously declared", CurrentToken.pos);
-            KillCodeGeneration();
-        }
-    }
-}
-*/
 
-
-PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddress) {
+PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddy) {
     SYMBOL *oldsptr=NULL;
     SYMBOL *newsptr=NULL;
     char *cptr;
@@ -1060,8 +1067,8 @@ PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddress) {
                 newsptr->scope = scope;
                 newsptr->type = symType;
                 if (symType == STYPE_VARIABLE || symType == STYPE_LOCALVAR) {
-                    newsptr->address = *varaddress;
-                    (*varaddress)++;
+                    newsptr->address = varaddy;
+                    *varaddy++;
                 } else {
                     newsptr->address = -1;
                 }
@@ -1072,7 +1079,6 @@ PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddress) {
             KillCodeGeneration();
         }
     }
-    return newsptr;
 }
 
 PRIVATE SYMBOL *LookupSymbol( void ) {
