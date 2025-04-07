@@ -74,8 +74,8 @@ PRIVATE SET RestOfStatementFBS;
 
 #define LOCAL_VAR 1
 #define GLOBAL_VAR 0
-int scope=1;/* global variables have scope 1*/ 
-int varaddress=0;
+int scope = 1; /* global variables have scope 1*/ 
+int varaddress = 0;
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
@@ -88,7 +88,7 @@ PRIVATE void parseProgram( void );
 PRIVATE int parseDeclarations( int var_type_check );
 PRIVATE void parseProcDeclarations( void );
 PRIVATE void parseBlock( void );
-PRIVATE void parseParamList( void );
+PRIVATE int parseParamList( void );
 PRIVATE void parseFormalParam( void );
 PRIVATE void parseStatement( void );
 PRIVATE void parseExpression( void );
@@ -325,13 +325,16 @@ PRIVATE void parseProcDeclarations( void )
         KillCodeGeneration();
     } else {
         procedure->address = CurrentCodeAddress();
-
     }
-    
 
     scope++;
 
-    if( CurrentToken.code == LEFTPARENTHESIS ) parseParamList();
+    if( CurrentToken.code == LEFTPARENTHESIS ){
+        int formalVar = parseParamList();
+        procedure->address += formalVar;
+        printf("procedure Addy: %d; ", procedure->address);
+
+    } 
 
     Accept( SEMICOLON );
 
@@ -361,7 +364,7 @@ PRIVATE void parseProcDeclarations( void )
     Accept( SEMICOLON );
     
     
-    /* Emit(I_DEC, locals); */
+    Emit(I_DEC, locals);
     _Emit(I_RET); 
     BackPatch(BackPatchAddr, CurrentCodeAddress());
     RemoveSymbols( scope );
@@ -385,12 +388,15 @@ PRIVATE void parseBlock( void )
     Accept( END );
 }
 
-PRIVATE void parseParamList( void )
-{
+PRIVATE int parseParamList( void )
+{   
+    int formalVar = 0;
     Accept( LEFTPARENTHESIS );
     parseFormalParam();
+    formalVar++;
     while ( CurrentToken.code == COMMA )  {
         Accept( COMMA );
+        formalVar++;
         parseFormalParam();
     }
     Accept( RIGHTPARENTHESIS );
@@ -403,11 +409,11 @@ PRIVATE int parseDeclarations( int var_type_check )
 
     Accept( VAR );
     if (var_type_check == LOCAL_VAR) {
-        makeSymbolTableEntry(STYPE_LOCALVAR, varaddress + num_new_vars + 1);
         num_new_vars++;
+        makeSymbolTableEntry(STYPE_LOCALVAR, num_new_vars );
 
     } else {    
-        makeSymbolTableEntry(STYPE_VARIABLE, varaddress + 1);
+        makeSymbolTableEntry(STYPE_VARIABLE, varaddress);
         num_new_vars++;
         
     }
@@ -416,12 +422,12 @@ PRIVATE int parseDeclarations( int var_type_check )
     while( CurrentToken.code == COMMA){
         Accept( COMMA );
         if (var_type_check == LOCAL_VAR){
-            makeSymbolTableEntry(STYPE_LOCALVAR, varaddress + num_new_vars + 1);
             num_new_vars++;
+            makeSymbolTableEntry(STYPE_LOCALVAR, varaddress + num_new_vars );
 
         }
         else{
-            makeSymbolTableEntry(STYPE_VARIABLE, varaddress + num_new_vars + 1);
+            makeSymbolTableEntry(STYPE_VARIABLE, varaddress + num_new_vars);
             num_new_vars++;
 
         }
@@ -445,8 +451,19 @@ PRIVATE void parseActualParameter( void )
 }
 
 PRIVATE void parseFormalParam( void )
-{
-    if(CurrentToken.code == REF) Accept( REF );
+{   
+
+    if(CurrentToken.code == REF) {
+        Accept( REF );
+        varaddress++;
+        SYMBOL *temp = makeSymbolTableEntry(STYPE_REFPAR, varaddress);
+        /* Emit(I_LOADA, temp->address);    */
+    } else {
+        varaddress++;
+        SYMBOL *temp = makeSymbolTableEntry(STYPE_VALUEPAR, varaddress);
+        /* Emit(I_LOADA, temp->address);    */
+    }
+
     Accept( IDENTIFIER );
 }
 
@@ -513,7 +530,6 @@ PRIVATE void parseReadStatement( void )
 	Accept(READ);
 	Accept(LEFTPARENTHESIS);
     var = LookupSymbol();
-    Error("WRONG ADDY FOR STORE", CurrentToken.pos);
     if( var != NULL && (var->type == STYPE_VARIABLE || var->type == STYPE_LOCALVAR)){
 	    Accept(IDENTIFIER);
         _Emit(I_READ);
@@ -524,7 +540,6 @@ PRIVATE void parseReadStatement( void )
     }
 	while(CurrentToken.code== COMMA){
 		Accept( COMMA );
-        Error("WRONG ADDY FOR STORE", CurrentToken.pos);
         var = LookupSymbol();
         if( var != NULL && (var->type == STYPE_VARIABLE || var->type == STYPE_LOCALVAR)){
             Accept(IDENTIFIER);
@@ -579,10 +594,11 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
         /* and if its more than 0, then somehow take all the lower 
         scope locals*/
         int procedure_scope = target->scope;
+        parseProcCallList( target );
         _Emit(I_PUSHFP);
         _Emit(I_BSF);
-
-        parseProcCallList( target );
+        printf("target addy: %d; ", target->address);
+        
     case SEMICOLON:
         if ( target != NULL && target->type == STYPE_PROCEDURE){
             Emit( I_CALL, target->address);
@@ -600,7 +616,7 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
             Emit(I_STOREA, target->address);
                 
         } else if (target != NULL && target->type == STYPE_LOCALVAR){ /* TODO */
-                Emit(I_STOREA, target->address);
+                Emit(I_STOREFP, target->address);
             
             /* diffScope = target->scope - 1; /* just get the scope and compare to baseline scope? */
             /* 
@@ -775,7 +791,7 @@ PRIVATE void parseSubTerm( void )
 			Emit(I_LOADA, var->address);
             
             } else if (var->type == STYPE_LOCALVAR ) {
-			Emit(I_LOADA, var->address);
+			Emit(I_LOADFP, var->address);
 
                 /* diffScope = scope - var->scope;
                 if (diffScope == 0){
@@ -1067,7 +1083,7 @@ PRIVATE void ReadToEndOfFile( void )
     }
 }
 
-PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddy) {
+PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddress) {
     SYMBOL *oldsptr=NULL;
     SYMBOL *newsptr=NULL;
     char *cptr;
@@ -1083,11 +1099,14 @@ PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddy) {
                 newsptr->scope = scope;
                 newsptr->type = symType;
                 if (symType == STYPE_VARIABLE || symType == STYPE_LOCALVAR) {
-                    newsptr->address = varaddy;
-                    varaddy++;
+                    newsptr->address = varaddress;
+                    /* printf("%d;", varaddress); */
+
+                    varaddress++;
                     /* Emit(I_LOADA, varaddy);   */
                 } else {
                     newsptr->address = -1;
+                    printf("%s", newsptr->s);
                 }
             
             }
