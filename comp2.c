@@ -178,7 +178,7 @@ PRIVATE void parseProgram( void )
     Accept(SEMICOLON);
     Synchronise( &ProgramFS_aug, &ProgramFBS);
     if ( CurrentToken.code == VAR ) { 
-    int varaddress = parseDeclarations(GLOBAL_VAR);
+    varaddress = parseDeclarations(GLOBAL_VAR);
         Emit(I_INC, varaddress);
     }
     Synchronise( &ProgramSS_aug, &ProgramFBS);
@@ -311,6 +311,7 @@ PRIVATE void parseProcDeclarations( void )
     int BackPatchAddr;
     SYMBOL *procedure;
     int locals; /* var to count locals for inc and dec space */
+    int scope_vars = varaddress;
 
     Accept( PROCEDURE );
     procedure = makeSymbolTableEntry(STYPE_PROCEDURE, NULL);
@@ -399,29 +400,32 @@ PRIVATE int parseDeclarations( int var_type_check )
 {
     int num_new_vars = 0;
     
+
     Accept( VAR );
     if (var_type_check == LOCAL_VAR) {
-    makeSymbolTableEntry(STYPE_LOCALVAR, varaddress + num_new_vars + 1);
+        makeSymbolTableEntry(STYPE_LOCALVAR, varaddress + num_new_vars + 1);
+        num_new_vars++;
 
     } else {    
         makeSymbolTableEntry(STYPE_VARIABLE, varaddress + 1);
+        num_new_vars++;
         
     }
     Accept( IDENTIFIER );
-    num_new_vars++;
     
     while( CurrentToken.code == COMMA){
         Accept( COMMA );
         if (var_type_check == LOCAL_VAR){
             makeSymbolTableEntry(STYPE_LOCALVAR, varaddress + num_new_vars + 1);
+            num_new_vars++;
 
         }
         else{
-            makeSymbolTableEntry(STYPE_VARIABLE, varaddress + 1);
+            makeSymbolTableEntry(STYPE_VARIABLE, varaddress + num_new_vars + 1);
+            num_new_vars++;
 
         }
         Accept( IDENTIFIER );
-        num_new_vars++;
         
     }
     
@@ -509,6 +513,7 @@ PRIVATE void parseReadStatement( void )
 	Accept(READ);
 	Accept(LEFTPARENTHESIS);
     var = LookupSymbol();
+    Error("WRONG ADDY FOR STORE", CurrentToken.pos);
     if( var != NULL && (var->type == STYPE_VARIABLE || var->type == STYPE_LOCALVAR)){
 	    Accept(IDENTIFIER);
         _Emit(I_READ);
@@ -519,6 +524,7 @@ PRIVATE void parseReadStatement( void )
     }
 	while(CurrentToken.code== COMMA){
 		Accept( COMMA );
+        Error("WRONG ADDY FOR STORE", CurrentToken.pos);
         var = LookupSymbol();
         if( var != NULL && (var->type == STYPE_VARIABLE || var->type == STYPE_LOCALVAR)){
             Accept(IDENTIFIER);
@@ -555,6 +561,8 @@ PRIVATE void parseStatement( void )
 PRIVATE void parseSimpleStatement( void )
 {
     SYMBOL *target = LookupSymbol();
+    
+    /* Error(CurrentToken.value, NULL); */
     Accept( IDENTIFIER );
     parseRestOfStatement( target );
 }
@@ -565,6 +573,7 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
     int i, diffScope;
     switch ( CurrentToken.code )
     {
+    
     case LEFTPARENTHESIS:
         /* need to find the current scope here, */
         /* and if its more than 0, then somehow take all the lower 
@@ -573,9 +582,6 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
         _Emit(I_PUSHFP);
         _Emit(I_BSF);
 
-        if (procedure_scope > 0) {
-            
-        }
         parseProcCallList( target );
     case SEMICOLON:
         if ( target != NULL && target->type == STYPE_PROCEDURE){
@@ -589,10 +595,12 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
     case ASSIGNMENT:
     default:
         parseAssignment();
+        
         if ( target != NULL && target->type == STYPE_VARIABLE ){
             Emit(I_STOREA, target->address);
+                
         } else if (target != NULL && target->type == STYPE_LOCALVAR){ /* TODO */
-                Emit(I_STORESP, target->address);
+                Emit(I_STOREA, target->address);
             
             /* diffScope = target->scope - 1; /* just get the scope and compare to baseline scope? */
             /* 
@@ -757,7 +765,7 @@ PRIVATE void parseSubTerm( void )
 		parseExpression();
 		Accept(RIGHTPARENTHESIS);
   	} else if(CurrentToken.code == INTCONST){
-  		Emit(I_LOADI,CurrentToken.value);
+  		Emit(I_LOADI, CurrentToken.value);
         	Accept(INTCONST);
     	} else{
 		var = LookupSymbol();
@@ -1076,7 +1084,8 @@ PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddy) {
                 newsptr->type = symType;
                 if (symType == STYPE_VARIABLE || symType == STYPE_LOCALVAR) {
                     newsptr->address = varaddy;
-                    *varaddy++;
+                    varaddy++;
+                    /* Emit(I_LOADA, varaddy);   */
                 } else {
                     newsptr->address = -1;
                 }
@@ -1087,6 +1096,7 @@ PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddy) {
             KillCodeGeneration();
         }
     }
+    return newsptr;
 }
 
 PRIVATE SYMBOL *LookupSymbol( void ) {
