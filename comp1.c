@@ -191,6 +191,7 @@ PRIVATE void parseProgram( void )
     parseBlock();
     Accept( ENDOFPROGRAM );     /* Token "." has name ENDOFPROGRAM          */
     Accept( ENDOFINPUT );
+    _Emit(I_HALT);
 }
 
 PRIVATE void Synchronise( SET *F, SET *FB )
@@ -376,7 +377,7 @@ PRIVATE void parseDeclarations( void )
 PRIVATE void parseActualParameter( void )
 {
     if( CurrentToken.code == IDENTIFIER){
-        SYMBOL *var = LookupSymbol();
+        LookupSymbol();
         Accept( IDENTIFIER );
     } else{
         parseExpression();
