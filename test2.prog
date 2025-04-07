@@ -1,0 +1,16 @@
+PROGRAM test2;
+VAR x, y;
+    PROCEDURE p1;
+    VAR z;
+    BEGIN
+        z := y;
+        y := 27;
+        x := 3;
+    END;
+BEGIN
+    y := 3;
+    
+    x := y * 4 + y;
+
+    p1;
+END.
