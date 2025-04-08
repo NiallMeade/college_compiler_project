@@ -80,7 +80,7 @@ PRIVATE void ParseIfStatement( void );
 PRIVATE void ParseReadStatement( void );
 PRIVATE void ParseWriteStatement( void );
 PRIVATE void ParseRestOfStatement( SYMBOL *target );
-PRIVATE void ParseProcCallList( SYMBOL *target );
+PRIVATE void ParseProcCallList();
 PRIVATE void ParseAssignment( void );
 PRIVATE void ParseActualParameter( void );
 PRIVATE int  OpenFiles( int argc, char *argv[] );
@@ -129,23 +129,21 @@ PUBLIC int main ( int argc, char *argv[] )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  Parser routines: Recursive-descent implementaion of the grammar's       */
-/*                   productions.                                           */
-/*                                                                          */
 /*                                                                          */
 /*  ParseProgram implements:                                                */
 /*                                                                          */
-/*       <Program>     :== "BEGIN" { <Statement> ";" } "END" "."            */
+/*  <Program> :== "PROGRAM" <Identifier> ";" [<Declarations>]               */
+/*                {<ProcDeclaration>} <Block> "."                           */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
 /*                                                                          */
-/*    Outputs:      None                                                    */
+/*    Outputs:      Emit code for Halt at end of program                    */
 /*                                                                          */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
-/*    Side Effects: Lookahead token advanced.                               */
-/*                                                                          */
+/*    Side Effects: Lookahead token advanced. Adds program to symbol table  */
+/*                  Synchronise if syntax error detected                    */
 /*--------------------------------------------------------------------------*/
 
 /* :==   “PROGRAM〈Identifier〉“;”[〈Declarations〉]{ 〈ProcDeclaration〉 } 〈Block〉“.”*/
@@ -177,6 +175,25 @@ PRIVATE void ParseProgram( void )
     _Emit(I_HALT);
 }
 
+
+/*----------------------------------------------------------------------------*/
+/*                                                                            */
+/*  Synchronise Implements:                                                   */
+/*   Prints error if current token isnt in first set. Advances lookahead      */
+/*   token until token in First or Follow beacon set is found in order to     */
+/*    resynchronise parser                                                    */
+/*                                                                            */
+/*    Inputs:       SET *F: Set of first tokensfor expected grammar token     */
+/*                  SET *FB: Set of follow and beacon symbols                 */
+/*                                                                            */
+/*    Outputs:      None                                                      */
+/*                                                                            */
+/*    Returns:      None                                                      */
+/*                                                                            */
+/*    Side Effects: Advances LookAhead token. Prints detected syntax error    */
+/*                                                                            */
+/*----------------------------------------------------------------------------*/
+
 PRIVATE void Synchronise( SET *F, SET *FB )
 {
     SET S;
@@ -187,6 +204,21 @@ PRIVATE void Synchronise( SET *F, SET *FB )
             CurrentToken = GetToken();
     }
 }
+
+/*----------------------------------------------------------------------------*/
+/*                                                                            */
+/*  SetupSets Implements:                                                     */
+/*   Initializes the global FIRST, FOLLOW, and beacon sets for program,	      */
+/*    procedure and restofstatement grammar rules.                            */
+/*    Inputs:       None                                                      */
+/*                                                                            */
+/*    Outputs:      None                                                      */
+/*                                                                            */
+/*    Returns:      None                                                      */
+/*                                                                            */
+/*    Side Effects: Initialises sets for syncronisation                       */
+/*                                                                            */
+/*----------------------------------------------------------------------------*/
 
 PRIVATE void SetupSets( void )
 {
@@ -216,7 +248,7 @@ PRIVATE void SetupSets( void )
 /*                                                                          */
 /*    Inputs:       None                                                    */
 /*                                                                          */
-/*    Outputs:      None                                                    */
+/*    Outputs:      Code for Add and subtract operator                      */
 /*                                                                          */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
@@ -245,8 +277,8 @@ PRIVATE void ParseExpression( void )
 /*                                                                          */
 /*    Inputs:       None                                                    */
 /*                                                                          */
-/*    Outputs:      None                                                    */
-/*                                                                          */
+/*    Outputs:      Emits code for while loop and backpatches loop          */
+/*                  start address                                           */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
 /*    Side Effects: Lookahead token advanced.                               */
@@ -280,8 +312,8 @@ PRIVATE void ParseWhileStatement( void )
 /*                                                                          */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
-/*    Side Effects: Lookahead token advanced.                               */
-/*                                                                          */
+/*    Side Effects: Lookahead token advanced. Scope incremented  	    */
+/*                  and decremented                                         */
 /*--------------------------------------------------------------------------*/
 PRIVATE void ParseProcDeclarations( void )
 {
@@ -349,8 +381,9 @@ PRIVATE void ParseBlock( void )
 /*    Inputs:       None                                                      */
 /*    Outputs:      None                                                      */
 /*    Returns:      None                                                      */
-/*    Side Effects: Advances the lookahead token as parameters are parsed.    */
+/*    Side Effects: Advances the lookahead toke.    			      */
 /*                                                                            */
+/*----------------------------------------------------------------------------*/
 PRIVATE void ParseParamList( void )
 {
     Accept( LEFTPARENTHESIS );
@@ -369,11 +402,10 @@ PRIVATE void ParseParamList( void )
 /*    〈Declarations〉 ::= “VAR” 〈Variable〉 { “,” 〈Variable〉 } “;”              */
 /*                                                                            */
 /*    Inputs:       None                                                      */
-/*    Outputs:      None                                                      */
+/*    Outputs:      emits code to allocate memory for variables               */
 /*    Returns:      None                                                      */
-/*    Side Effects: Adds variables to the symbol table, emits code to         */
-/*                  allocate memory for them, and advances the lookahead token*/
-/*                                                                            */
+/*    Side Effects: Adds variables to the symbol table, 		      */
+/*                  and advances the lookahead token                          */
 /*----------------------------------------------------------------------------*/
 PRIVATE void ParseDeclarations( void )
 {
@@ -407,7 +439,6 @@ PRIVATE void ParseDeclarations( void )
 PRIVATE void ParseActualParameter( void )
 {
     if( CurrentToken.code == IDENTIFIER){
-        LookupSymbol();
         Accept( IDENTIFIER );
     } else{
         ParseExpression();
@@ -444,12 +475,11 @@ PRIVATE void ParseFormalParam( void )
 /*                                                                          */
 /*    Inputs:       None                                                    */
 /*                                                                          */
-/*    Outputs:      None                                                    */
-/*                                                                          */
+/*    Outputs:      Emits code for conditionalbranching. Back patches       */
+/*                  address for if and else loop jump around                */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
-/*    Side Effects: Lookahead token advanced. Emits code for conditional    */
-/*        branching. Back patches address for if and else loop jump around  */
+/*    Side Effects: Lookahead token advanced. 				    */
 /*--------------------------------------------------------------------------*/
 
 PRIVATE void ParseIfStatement( void )
@@ -482,13 +512,12 @@ PRIVATE void ParseIfStatement( void )
 /*                                                                          */
 /*    Inputs:       None                                                    */
 /*                                                                          */
-/*    Outputs:      None                                                    */
-/*                                                                          */
+/*    Outputs:      Emit code for read statement. Print error if            */
+/*                  identifier is not defined                               */
 /*    Returns:      Nothing                                                 */
 /*                                                                          */
-/*    Side Effects: Lookahead token advanced.  Emit code for read           */
-/*                 statement. kill code generation if error detected.       */
-/*       	   emits code for read statement						    */
+/*    Side Effects: Lookahead token advanced. kill code generation          */
+/*       	    if error detected. emits code for read statement	    */
 /*       								    */
 /*--------------------------------------------------------------------------*/
 
@@ -563,9 +592,9 @@ PRIVATE void ParseStatement( void )
 
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
-/*  ParseSimpleStatement Implements:                                         */
+/*  ParseSimpleStatement Implements:                                          */
 /*                                                                            */
-/*    〈SimpleStatement〉 ::= 〈Variable〉 〈RestOfStatement〉                   */
+/*    〈SimpleStatement〉 ::= 〈Variable〉 〈RestOfStatement〉                      */
 /*                                                                            */
 /*    Inputs:       None                                                      */
 /*                                                                            */
@@ -612,7 +641,7 @@ PRIVATE void ParseRestOfStatement( SYMBOL *target )
     switch ( CurrentToken.code )
     {
     case LEFTPARENTHESIS:
-        ParseProcCallList( target );
+        ParseProcCallList();
     case SEMICOLON:
         if ( target != NULL && target->type == STYPE_PROCEDURE){
             Emit( I_CALL, target->address);
@@ -653,8 +682,8 @@ PRIVATE void ParseRestOfStatement( SYMBOL *target )
 /*    Side Effects: Advance Lookahead symbol.  */
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
-//TODO REMOVE TARGET
-PRIVATE void ParseProcCallList( SYMBOL *target )
+
+PRIVATE void ParseProcCallList()
 {
     Accept( LEFTPARENTHESIS );
     ParseActualParameter();
@@ -712,7 +741,7 @@ PRIVATE void ParseWriteStatement( void )
 	Accept(WRITE);
 	Accept(LEFTPARENTHESIS);
 	ParseExpression();
-    _Emit(I_WRITE);
+        _Emit(I_WRITE);
 	while(CurrentToken.code== COMMA){
 		Accept( COMMA );
 		ParseExpression();
