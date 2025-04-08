@@ -182,6 +182,7 @@ PRIVATE void parseProgram( void )
 
     parseBlock();
     Accept( ENDOFPROGRAM );     /* Token "." has name ENDOFPROGRAM          */
+    Accept( ENDOFINPUT );
 }
 
 /*--------------------------------------------------------------------------*/
