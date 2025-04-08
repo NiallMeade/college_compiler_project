@@ -574,10 +574,15 @@ PRIVATE void parseReadStatement( void )
 	Accept(READ);
 	Accept(LEFTPARENTHESIS);
     var = LookupSymbol();
-    if( var != NULL && (var->type == STYPE_VARIABLE || var->type == STYPE_LOCALVAR)){
-	    Accept(IDENTIFIER);
-        _Emit(I_READ);
-        Emit(I_STOREA, var->address);
+    if( var != NULL && (var->type == STYPE_VARIABLE || var->type == STYPE_LOCALVAR
+            || var->type == STYPE_VALUEPAR)){
+            Accept(IDENTIFIER);
+            _Emit(I_READ);
+            Emit(I_STOREA, var->address);
+        }else if( var != NULL && (var->type == STYPE_REFPAR )){
+            Accept(IDENTIFIER);
+            _Emit(I_READ);
+            Emit(I_STOREA, var->address);
     } else{
         Error("Identifier is not defined or not of type variable", CurrentToken.pos);
         KillCodeGeneration();
@@ -585,11 +590,19 @@ PRIVATE void parseReadStatement( void )
 	while(CurrentToken.code== COMMA){
 		Accept( COMMA );
         var = LookupSymbol();
-        if( var != NULL && (var->type == STYPE_VARIABLE || var->type == STYPE_LOCALVAR)){
+        if( var != NULL && (var->type == STYPE_VARIABLE || var->type == STYPE_LOCALVAR
+            || var->type == STYPE_VALUEPAR)){
             Accept(IDENTIFIER);
             _Emit(I_READ);
             Emit(I_STOREA, var->address);
-        } else{
+        } else if( var != NULL && (var->type == STYPE_REFPAR )){
+            Accept(IDENTIFIER);
+            _Emit(I_READ);
+            Emit(I_STOREA, var->address);
+            
+
+        } 
+        else{
             Error("Identifier is not defined or not of type variable", CurrentToken.pos);
             KillCodeGeneration();
         }  	
@@ -629,7 +642,7 @@ PRIVATE void parseSimpleStatement( void )
 PRIVATE void parseRestOfStatement( SYMBOL *target )
 {
     Synchronise(&RestOfStatementFS_aug, &RestOfStatementFBS);
-    int i, diffScope;
+    int i = 0, diffScope = 0;
     switch ( CurrentToken.code )
     {
     
@@ -661,18 +674,27 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
         } else if (target != NULL && target->type == STYPE_LOCALVAR){ /* TODO */
             Emit(I_STOREFP, target->address);
             
-            /* diffScope = target->scope - 1; /* just get the scope and compare to baseline scope? */
-            /* 
+            diffScope = target->scope - 1; /* just get the scope and compare to baseline scope? */
+            
             if (diffScope == 0){
-                Emit(I_STOREFP, target->address);
+                
+            } else if (diffScope == 1) {
+                _Emit(I_LOADFP);
+                _Emit(I_BSF);
+                Emit(I_CALL, target->address);
+                _Emit(I_RSF);
             } else {
+                /* for diffScope greater than 1 */
                 _Emit(I_LOADFP);
                 for (i = 0;  i < diffScope - 1; i++) {
-                    _Emit(I_STORESP);
+                    _Emit(I_LOADSP);
                 }
                 Emit(I_STORESP, target->address);
+                _Emit(I_BSF);
+                Emit(I_CALL, target->address);
+                _Emit(I_RSF);
             }
-            */
+            
         } else if (target != NULL && target->type == STYPE_REFPAR ) {
             Emit(I_LOADFP, target->address);
             _Emit(I_STORESP);
