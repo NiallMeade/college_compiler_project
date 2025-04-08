@@ -74,7 +74,7 @@ PRIVATE SET RestOfStatementFBS;
 
 #define LOCAL_VAR 1
 #define GLOBAL_VAR 0
-int scope = 1; /* global variables have scope 1*/
+int scope = 1; /* global variables have scope 1*/ 
 int varaddress = 0;
 
 /*--------------------------------------------------------------------------*/
@@ -89,7 +89,7 @@ PRIVATE int parseDeclarations( int var_type_check );
 PRIVATE void parseProcDeclarations( void );
 PRIVATE void parseBlock( void );
 PRIVATE int parseParamList( SYMBOL *procedure );
-PRIVATE SYMBOL *parseFormalParam( SYMBOL *procedure, char* pbitmask );
+PRIVATE SYMBOL *parseFormalParam( SYMBOL *procedure, int *bitmask, int bcount);
 PRIVATE void parseStatement( void );
 PRIVATE void parseExpression( void );
 PRIVATE void parseTerm( void );
@@ -101,7 +101,7 @@ PRIVATE void parseWriteStatement( void );
 PRIVATE void parseRestOfStatement( SYMBOL *target );
 PRIVATE void parseProcCallList( SYMBOL *target );
 PRIVATE void parseAssignment( void );
-PRIVATE void parseActualParameter( void );
+PRIVATE void parseActualParameter( SYMBOL *target, int pcount);
 PRIVATE int  OpenFiles( int argc, char *argv[] );
 PRIVATE void Accept( int code );
 PRIVATE void ReadToEndOfFile( void );
@@ -142,7 +142,7 @@ PUBLIC int main ( int argc, char *argv[] )
         fclose( ListFile );
         return  EXIT_SUCCESS;
     }
-    else
+    else 
         return EXIT_FAILURE;
 }
 
@@ -171,25 +171,25 @@ PUBLIC int main ( int argc, char *argv[] )
 /* :==   “PROGRAM〈Identifier〉“;”[〈Declarations〉]{ 〈ProcDeclaration〉 } 〈Block〉“.”*/
 PRIVATE void parseProgram( void )
 {
-   
+    
     Accept( PROGRAM );  
     makeSymbolTableEntry(STYPE_PROGRAM, NULL);
     Accept( IDENTIFIER );
     Accept(SEMICOLON);
     Synchronise( &ProgramFS_aug, &ProgramFBS);
-    if ( CurrentToken.code == VAR ) {
+    if ( CurrentToken.code == VAR ) { 
     varaddress = parseDeclarations(GLOBAL_VAR);
         Emit(I_INC, varaddress);
     }
     Synchronise( &ProgramSS_aug, &ProgramFBS);
     while (CurrentToken.code == PROCEDURE)
     {
-       
+        
 
         parseProcDeclarations();
         Synchronise( &ProgramSS_aug, &ProgramFBS);
     }
-   
+    
     /* EBNF "zero or one of" operation: [...] implemented as if-statement.  */
     /* Operation triggered by a <Declarations> block in the input stream.   */
     /* <Declarations>, if present, begins with a "PROCEDURE" token.               */
@@ -230,11 +230,11 @@ PRIVATE void SetupSets( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*      Expression implements:                                      */
+/*  	Expression implements:                          		    */
 /*                                                                          */
-/*          〈Expression〉:==〈CompoundTerm〉{ 〈AddOp〉〈CompoundTerm〉 }      */
+/*         	〈Expression〉:==〈CompoundTerm〉{ 〈AddOp〉〈CompoundTerm〉 }      */
 /*                                                                          */
-/*                                          */
+/*       								    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -248,22 +248,22 @@ PRIVATE void SetupSets( void )
 /*--------------------------------------------------------------------------*/
 PRIVATE void parseExpression( void )
 {
-    int op;
-    parseCompoundTerm();
-    while((op=CurrentToken.code)== ADD || op== SUBTRACT){ /*TODO Find better way to do this*/
+	int op;
+	parseCompoundTerm();
+  	while((op=CurrentToken.code)== ADD || op== SUBTRACT){ /*TODO Find better way to do this*/
         parseAddOp();
         parseCompoundTerm();
         op==ADD ? _Emit(I_ADD): _Emit(I_SUB);
-    }
+  	}
 }
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseWhileStatement implements:                                     */
+/*  parseWhileStatement implements:                          		    */
 /*                                                                          */
-/* 〈WhileStatement〉:==   “WHILE”〈BooleanExpression〉“DO”〈Block〉              */
+/* 〈WhileStatement〉:==   “WHILE”〈BooleanExpression〉“DO”〈Block〉 		        */
 /*                                                                          */
-/*                                          */
+/*       								    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -279,22 +279,22 @@ PRIVATE void parseExpression( void )
 PRIVATE void parseWhileStatement( void )
 {
     int Label1, L2BackPatchLoc;
-    Accept(WHILE);
+	Accept(WHILE);
     Label1 = CurrentCodeAddress();
     L2BackPatchLoc = parseBooleanExpression();
-    Accept(DO);
-    parseBlock();
+	Accept(DO);
+	parseBlock();
     Emit(I_BR, Label1);
     BackPatch(L2BackPatchLoc, CurrentCodeAddress());
 }
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseWhileStatement implements:                                     */
+/*  parseWhileStatement implements:                          		    */
 /*                                                                          */
-/* 〈WhileStatement〉:==   “WHILE”〈BooleanExpression〉“DO”〈Block〉              */
+/* 〈WhileStatement〉:==   “WHILE”〈BooleanExpression〉“DO”〈Block〉 		        */
 /*                                                                          */
-/*                                          */
+/*       								    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -318,8 +318,8 @@ PRIVATE void parseProcDeclarations( void )
     Accept( IDENTIFIER );
     BackPatchAddr = CurrentCodeAddress();
     Emit(I_BR, 999);
-   
-   
+    
+    
     if (procedure->address == NULL) {
         /* ERROR KILL CODDEGEN?*/
         KillCodeGeneration();
@@ -331,9 +331,8 @@ PRIVATE void parseProcDeclarations( void )
 
     if( CurrentToken.code == LEFTPARENTHESIS ){
         parseParamList(procedure);
-        printf("procedure Addy: %d; ", procedure->address);
-
-    }
+        
+    } 
 
     Accept( SEMICOLON );
 
@@ -343,10 +342,10 @@ PRIVATE void parseProcDeclarations( void )
          /* needs to build a stack frame, not sure about offset */
         /* Emit(I_LOADFP, vars_addy_off);    */
        
-       
+        
         locals = parseDeclarations(LOCAL_VAR); /* local variable call */
         Emit(I_INC, locals);
-    }
+    } 
 
     Synchronise(&ProcedureSS_aug, &ProcedureFBS);
     while (CurrentToken.code == PROCEDURE)
@@ -357,14 +356,13 @@ PRIVATE void parseProcDeclarations( void )
         parseProcDeclarations(); /* TODO - implement Static Lick? */
         Synchronise(&ProcedureSS_aug, &ProcedureFBS);
     }
-   
+    
     parseBlock();
-   
+    
     Accept( SEMICOLON );
-   
-   
+    
     if ( locals != 0) Emit(I_DEC, locals);
-    _Emit(I_RET);
+    _Emit(I_RET); 
     BackPatch(BackPatchAddr, CurrentCodeAddress());
     RemoveSymbols( scope );
     scope--;
@@ -388,61 +386,49 @@ PRIVATE void parseBlock( void )
 }
 
 PRIVATE int parseParamList( SYMBOL *procedure )
-{  
-    SYMBOL *varArray[8];
-   
+{   
     int formalVar = 0;
-    char *bitmask;
+    int bitmask = 0;
+    int bcount = 0;
     Accept( LEFTPARENTHESIS );
     formalVar++;
     int backPatchAddy = 0;
     SYMBOL arr[8];
-    varArray[0] = parseFormalParam(procedure, bitmask);
-
+    SYMBOL *startParam = parseFormalParam(procedure, &bitmask, bcount);
     while ( CurrentToken.code == COMMA )  {
-       
+        
+        bcount++;
         Accept( COMMA );
-        varArray[formalVar] = parseFormalParam(procedure, bitmask);
         formalVar++;
+        startParam = parseFormalParam(procedure, &bitmask, bcount);
+        
     }
-   
     procedure->address += formalVar;
     procedure->pcount = formalVar;
-    printf("\nprocedure pcount: %d\n", formalVar);
+    
     int i = 1;
-    /*  
-    SYMBOL *temp = varArray[formalVar - 1];
-    temp->address = i - formalVar;
-    */
-   
+
     while (i <= formalVar){
-        printf("\n procs second assignment \n");
-        varArray[formalVar - i]->address = -i;
-        Emit(I_STOREFP, -(i));
-        printf("\n procs first assignment \n");
-       
+        Emit(I_STOREFP,  i - 1 -(formalVar));
+        startParam->address = i - 1 -(formalVar);
         /*
-       
+        
         startParam--;
         startParam = startParam->next; */
        
-        if (bitmask[formalVar + 1 - i] == '1'){
-           
-        }
         i++;
     }
    
-   
-    printf("procedure param bitmask: %d\n", procedure->ptypes);
+    procedure->ptypes = bitmask;
     Accept( RIGHTPARENTHESIS );
-   
+    bitmask = 0;
+    bcount = 0;
 }
-
 
 PRIVATE int parseDeclarations( int var_type_check )
 {
     int num_new_vars = 0;
-   
+    
 
     Accept( VAR );
     if (var_type_check == LOCAL_VAR) {
@@ -452,10 +438,10 @@ PRIVATE int parseDeclarations( int var_type_check )
     } else {    
         makeSymbolTableEntry(STYPE_VARIABLE, varaddress);
         num_new_vars++;
-       
+        
     }
     Accept( IDENTIFIER );
-   
+    
     while( CurrentToken.code == COMMA){
         Accept( COMMA );
         if (var_type_check == LOCAL_VAR){
@@ -469,44 +455,56 @@ PRIVATE int parseDeclarations( int var_type_check )
 
         }
         Accept( IDENTIFIER );
-       
+        
     }
-   
+    
     /* Emit(I_INC, num_new_vars); */
     Accept( SEMICOLON );
     return num_new_vars;
 }
 
-PRIVATE void parseActualParameter( void )
+PRIVATE void parseActualParameter( SYMBOL *target, int pcount)
 {
+    int ptypes = target->ptypes;
+    int checkbit = (ptypes >> pcount) & 1;
+
     if( CurrentToken.code == IDENTIFIER){
         SYMBOL *var = LookupSymbol();
+        if (checkbit) {
+        Emit(I_LOADA, var->address);
+        }
         Accept( IDENTIFIER );
     } else{
-        parseExpression();
+        if (checkbit) {
+            Error("Identifier for Procedure Param cant be an Expression", CurrentToken.pos);
+            KillCodeGeneration;
+        } else {
+            parseExpression();
+
+        } 
+        
     }
 }
 
-PRIVATE SYMBOL *parseFormalParam( SYMBOL *procedure, char* bitmask)
-{  
+PRIVATE SYMBOL *parseFormalParam( SYMBOL *procedure, int *bitmask, int bcount)
+{   
     SYMBOL *temp;
 
     if(CurrentToken.code == REF) {
         Accept( REF );
         temp = makeSymbolTableEntry(STYPE_REFPAR, NULL);
-        bitmask += '1';
-        /*
+        *bitmask ^= 1 << bcount;
+        /* 
         temp->address = CurrentCodeAddress;
         Emit(I_LOADI, temp->address); */
-       
+        
     } else {
         temp = makeSymbolTableEntry(STYPE_VALUEPAR, NULL);
-        bitmask += '0';
-        /*
+        /* 
         temp->address = CurrentCodeAddress;
         Emit(I_LOADI, temp->address); */
-       
-
+        
+        
     }
 
     Accept( IDENTIFIER );
@@ -515,11 +513,11 @@ PRIVATE SYMBOL *parseFormalParam( SYMBOL *procedure, char* bitmask)
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseIfStatement implements:                                    */
+/*  parseIfStatement implements:                          		    */
 /*                                                                          */
 /* 〈IfStatement〉:==   “IF”〈BooleanExpression〉“THEN”〈Block〉[ “ELSE”〈Block〉]  */
 /*                                                                          */
-/*                                          */
+/*       								    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -535,29 +533,29 @@ PRIVATE SYMBOL *parseFormalParam( SYMBOL *procedure, char* bitmask)
 PRIVATE void parseIfStatement( void )
 {
     int L2BackPatchLoc, L3BackPatchLoc;
-    Accept(IF);
-    L2BackPatchLoc = parseBooleanExpression();
-    Accept(THEN);
-    parseBlock();
+	Accept(IF);
+	L2BackPatchLoc = parseBooleanExpression();
+	Accept(THEN);
+	parseBlock();
     if(CurrentToken.code == ELSE){
         L3BackPatchLoc = CurrentCodeAddress();
         Emit(I_BR, 999);
-        Accept(ELSE);
+		Accept(ELSE);
         BackPatch( L2BackPatchLoc, CurrentCodeAddress());
-        parseBlock();
+		parseBlock();
         BackPatch( L3BackPatchLoc, CurrentCodeAddress());
-    } else{
+  	} else{
         BackPatch( L2BackPatchLoc, CurrentCodeAddress());
     }
 }
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseReadStatement implements:                                      */
+/*  parseReadStatement implements:                          		    */
 /*                                                                          */
-/* 〈ReadStatement〉:==   “READ” “(”〈Variable〉 {“,”〈Variable〉 }“)”        */
+/* 〈ReadStatement〉:==   “READ” “(”〈Variable〉 {“,”〈Variable〉 }“)”   	    */
 /*                                                                          */
-/*                                          */
+/*       								    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -573,19 +571,19 @@ PRIVATE void parseIfStatement( void )
 PRIVATE void parseReadStatement( void )
 {
     SYMBOL *var;
-    Accept(READ);
-    Accept(LEFTPARENTHESIS);
+	Accept(READ);
+	Accept(LEFTPARENTHESIS);
     var = LookupSymbol();
     if( var != NULL && (var->type == STYPE_VARIABLE || var->type == STYPE_LOCALVAR)){
-        Accept(IDENTIFIER);
+	    Accept(IDENTIFIER);
         _Emit(I_READ);
         Emit(I_STOREA, var->address);
     } else{
         Error("Identifier is not defined or not of type variable", CurrentToken.pos);
         KillCodeGeneration();
     }
-    while(CurrentToken.code== COMMA){
-        Accept( COMMA );
+	while(CurrentToken.code== COMMA){
+		Accept( COMMA );
         var = LookupSymbol();
         if( var != NULL && (var->type == STYPE_VARIABLE || var->type == STYPE_LOCALVAR)){
             Accept(IDENTIFIER);
@@ -594,9 +592,9 @@ PRIVATE void parseReadStatement( void )
         } else{
             Error("Identifier is not defined or not of type variable", CurrentToken.pos);
             KillCodeGeneration();
-        }  
+        }  	
     }
-    Accept(RIGHTPARENTHESIS);
+  	Accept(RIGHTPARENTHESIS);
 }
 
 PRIVATE void parseStatement( void )
@@ -622,7 +620,7 @@ PRIVATE void parseStatement( void )
 PRIVATE void parseSimpleStatement( void )
 {
     SYMBOL *target = LookupSymbol();
-   
+    
     /* Error(CurrentToken.value, NULL); */
     Accept( IDENTIFIER );
     parseRestOfStatement( target );
@@ -634,17 +632,16 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
     int i, diffScope;
     switch ( CurrentToken.code )
     {
-   
+    
     case LEFTPARENTHESIS:
         /* need to find the current scope here, */
-        /* and if its more than 0, then somehow take all the lower
+        /* and if its more than 0, then somehow take all the lower 
         scope locals*/
         int procedure_scope = target->scope;
         parseProcCallList( target );
         _Emit(I_PUSHFP);
         _Emit(I_BSF);
-        printf("target addy: %d; ", target->address);
-       
+        
     case SEMICOLON:
         if ( target != NULL && target->type == STYPE_PROCEDURE){
             Emit( I_CALL, target->address);
@@ -657,15 +654,15 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
     case ASSIGNMENT:
     default:
         parseAssignment();
-       
+        
         if ( target != NULL && target->type == STYPE_VARIABLE ){
             Emit(I_STOREA, target->address);
-               
+                
         } else if (target != NULL && target->type == STYPE_LOCALVAR){ /* TODO */
             Emit(I_STOREFP, target->address);
-           
+            
             /* diffScope = target->scope - 1; /* just get the scope and compare to baseline scope? */
-            /*
+            /* 
             if (diffScope == 0){
                 Emit(I_STOREFP, target->address);
             } else {
@@ -683,7 +680,7 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
         } else if (target != NULL && target->type == STYPE_VALUEPAR) {
             Emit(I_STOREFP, target->address);
 
-        }
+        } 
         else{
             Error("Identifier not a declared variable.", CurrentToken.pos);
             KillCodeGeneration();
@@ -697,10 +694,13 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
 PRIVATE void parseProcCallList( SYMBOL *target )
 {
     Accept( LEFTPARENTHESIS );
-    parseActualParameter();
+    int pcount = 0;
+    parseActualParameter(target, pcount);
+
     while(CurrentToken.code == COMMA){
         Accept( COMMA );
-        parseActualParameter();
+        pcount++;
+        parseActualParameter(target, pcount);
     }
     Accept(RIGHTPARENTHESIS);
 }
@@ -714,11 +714,11 @@ PRIVATE void parseAssignment( void )
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseWriteStatement implements:                                     */
+/*  parseWriteStatement implements:                          		    */
 /*                                                                          */
-/* 〈WriteStatement〉:==   “WRITE” “(”〈Expression〉 {“,”〈Expression〉 }“)”      */
+/* 〈WriteStatement〉:==   “WRITE” “(”〈Expression〉 {“,”〈Expression〉 }“)”	    */
 /*                                                                          */
-/*                                          */
+/*       								    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -733,26 +733,26 @@ PRIVATE void parseAssignment( void )
 
 PRIVATE void parseWriteStatement( void )
 {
-    Accept(WRITE);
-    Accept(LEFTPARENTHESIS);
-    parseExpression();
+	Accept(WRITE);
+	Accept(LEFTPARENTHESIS);
+	parseExpression();
     _Emit(I_WRITE);
-    while(CurrentToken.code== COMMA){
-        Accept( COMMA );
-        parseExpression();
+	while(CurrentToken.code== COMMA){
+		Accept( COMMA );
+		parseExpression();
         _Emit(I_WRITE);
-    }
-    Accept(RIGHTPARENTHESIS);
+  	}
+  	Accept(RIGHTPARENTHESIS);
 }
 
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseCompoundTerm implements:                                   */
+/*  parseCompoundTerm implements:                          		    */
 /*                                                                          */
-/*           〈CompoundTerm〉:==〈Term〉 { 〈MultOp〉〈Term〉  }                */
+/*         	 〈CompoundTerm〉:==〈Term〉 { 〈MultOp〉〈Term〉  }                */
 /*                                                                          */
-/*                                          */
+/*       								    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -767,22 +767,22 @@ PRIVATE void parseWriteStatement( void )
 
 PRIVATE void parseCompoundTerm( void )
 {
-    int op;
-    parseTerm();
-    while((op=CurrentToken.code)== MULTIPLY || op== DIVIDE){ /*TODO Find better way to do this*/
-    parseMultOp();
-    parseTerm();
-    op==MULTIPLY ? _Emit(I_MULT): _Emit(I_DIV);
-    }
+	int op;
+	parseTerm();
+  	while((op=CurrentToken.code)== MULTIPLY || op== DIVIDE){ /*TODO Find better way to do this*/
+  	parseMultOp();
+  	parseTerm();
+  	op==MULTIPLY ? _Emit(I_MULT): _Emit(I_DIV);
+  	}
 }
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseTerm implements:                                           */
+/*  parseTerm implements:                          		            */
 /*                                                                          */
-/*           〈Term〉 :== [“−”]〈SubTerm〉                                              */
+/*         	 〈Term〉 :== [“−”]〈SubTerm〉		                                        */
 /*                                                                          */
-/*                                          */
+/*       								    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -797,23 +797,23 @@ PRIVATE void parseCompoundTerm( void )
 
 PRIVATE void parseTerm( void )
 {
-    int negate=0;
-    if(CurrentToken.code== SUBTRACT){
-        negate=1;
-        Accept( SUBTRACT );
-    }
-    parseSubTerm();
-   
-    if(negate){ _Emit(I_NEG);}
+	int negate=0;
+	if(CurrentToken.code== SUBTRACT){
+		negate=1;
+		Accept( SUBTRACT );
+  	}
+  	parseSubTerm();
+  	
+  	if(negate){ _Emit(I_NEG);}
 }
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*  parseSubTerm implements:                                            */
+/*  parseSubTerm implements:                          		            */
 /*                                                                          */
 /*    〈SubTerm〉 :==〈Identifier〉 |<INTCONST> | "(" <EXPRESSION〉 ")"       */
 /*                                                                          */
-/*                                          */
+/*       								    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -830,22 +830,22 @@ PRIVATE void parseSubTerm( void )
 {
     int i, diffScope;
     SYMBOL *var;
-    if ( CurrentToken.code == LEFTPARENTHESIS )  {
-        Accept(LEFTPARENTHESIS);
-        parseExpression();
-        Accept(RIGHTPARENTHESIS);
-    } else if(CurrentToken.code == INTCONST){
-        Emit(I_LOADI, CurrentToken.value);
-            Accept(INTCONST);
-        } else{
-        var = LookupSymbol();
-        if (var != NULL){
+	if ( CurrentToken.code == LEFTPARENTHESIS )  {
+		Accept(LEFTPARENTHESIS);
+		parseExpression();
+		Accept(RIGHTPARENTHESIS);
+  	} else if(CurrentToken.code == INTCONST){
+  		Emit(I_LOADI, CurrentToken.value);
+        	Accept(INTCONST);
+    	} else{
+		var = LookupSymbol();
+		if (var != NULL){
 
             if (var->type == STYPE_VARIABLE){
-            Emit(I_LOADA, var->address);
-           
+			Emit(I_LOADA, var->address);
+            
             } else if (var->type == STYPE_LOCALVAR ) {
-            Emit(I_LOADFP, var->address);
+			Emit(I_LOADFP, var->address);
 
                 /* diffScope = scope - var->scope;
                 if (diffScope == 0){
@@ -856,31 +856,31 @@ PRIVATE void parseSubTerm( void )
                         _Emit(I_LOADSP);
                     }
                     Emit(I_LOADSP, var->address);
-                }
+                } 
                     */
             } else if (var->type == STYPE_REFPAR) {
-                printf("\nref var: %s; \n", var->s);
                 Emit(I_LOADFP, var->address);
                 _Emit(I_LOADSP);
+
             } else if (var->type == STYPE_VALUEPAR) {
                 Emit(I_LOADFP, var->address);
             }
 
-        }else{
-            Error("variable undeclared", CurrentToken.pos);
-        }
-       
-        Accept( IDENTIFIER );
-    }
+		}else{
+			Error("variable undeclared", CurrentToken.pos);
+		}
+		
+		Accept( IDENTIFIER );
+  	}
 }
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
 /*  parseBooleanExpression implements:                                      */
 /*                                                                          */
-/*     〈BooleanExpression〉:==〈Expression〉 〈RelOp〉〈Expression〉                  */
+/*     〈BooleanExpression〉:==〈Expression〉 〈RelOp〉〈Expression〉    		       */
 /*                                                                          */
-/*                                          */
+/*       								    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -896,8 +896,8 @@ PRIVATE void parseSubTerm( void )
 PRIVATE int parseBooleanExpression( void )
 {
     int BackPatchAddr, RelOpInstruction;
-    parseExpression();
-    RelOpInstruction = parseRelOp();
+	parseExpression();
+	RelOpInstruction = parseRelOp();
     parseExpression();
     _Emit(I_SUB);
     BackPatchAddr = CurrentCodeAddress();
@@ -909,9 +909,9 @@ PRIVATE int parseBooleanExpression( void )
 /*                                                                          */
 /*  parseAddOp implements:                                             */
 /*                                                                          */
-/*       〈AddOp〉:==   “+”|“−”                                   */
+/*       〈AddOp〉:==   “+”|“−”				                    */
 /*                                                                          */
-/*                                          */
+/*       								    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -927,9 +927,9 @@ PRIVATE int parseBooleanExpression( void )
 PRIVATE void parseAddOp( void )
 {
     if ( CurrentToken.code == ADD ){
-        Accept( ADD );
+    	Accept( ADD );
     } else if(CurrentToken.code == SUBTRACT){
-        Accept( SUBTRACT );
+    	Accept( SUBTRACT );
     }  
 }
 
@@ -939,9 +939,9 @@ PRIVATE void parseAddOp( void )
 /*                                                                          */
 /*  parseMultOp implements:                                             */
 /*                                                                          */
-/*       〈MultOp〉:==   “*”|“/”                                  */
+/*       〈MultOp〉:==   “*”|“/”				                    */
 /*                                                                          */
-/*                                          */
+/*       								    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -957,21 +957,21 @@ PRIVATE void parseAddOp( void )
 PRIVATE void parseMultOp( void )
 {
     if ( CurrentToken.code == MULTIPLY ){
-        Accept( MULTIPLY );
-        }
-        else if(CurrentToken.code == DIVIDE)
-        {
-            Accept( DIVIDE );
-        }  
+    	Accept( MULTIPLY );
+    	}
+    	else if(CurrentToken.code == DIVIDE)
+    	{
+    		Accept( DIVIDE );
+    	}  
 }
 
 /*--------------------------------------------------------------------------*/
 /*                                                                          */
 /*  parseRelOp implements:                                             */
 /*                                                                          */
-/*       〈RelOp〉 :==   “=”|“<=”|“>=”|“<”|“>”                            */
+/*       〈RelOp〉 :==   “=”|“<=”|“>=”|“<”|“>”		                    */
 /*                                                                          */
-/*                                          */
+/*       								    */
 /*                                                                          */
 /*                                                                          */
 /*    Inputs:       None                                                    */
@@ -989,7 +989,7 @@ PRIVATE int parseRelOp( void )
     int RelOpInstruction;
     if ( CurrentToken.code == EQUALITY){
         RelOpInstruction = I_BZ;
-        Accept( EQUALITY );
+    	Accept( EQUALITY );
     }
     else if(CurrentToken.code == LESSEQUAL )
     {
@@ -1154,7 +1154,7 @@ PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddress) {
             else cptr= oldsptr->s;
             if ((newsptr = EnterSymbol(cptr, hashindex)) == NULL) {
                 /*fatal error compiler must exit*/
-            } else {
+            } else { 
                 if (oldsptr==NULL) PreserveString();
                 newsptr->scope = scope;
                 newsptr->type = symType;
@@ -1166,7 +1166,7 @@ PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddress) {
                     /* Emit(I_LOADA, varaddy);   */
                 } else if (symType == STYPE_VALUEPAR || symType == STYPE_REFPAR){
                     newsptr->address = varaddress;
-                }
+                } 
                 else {
                     newsptr->address = -1;
                     if (newsptr->type == STYPE_PROCEDURE) {
@@ -1175,7 +1175,7 @@ PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddress) {
                          
                     }
                 }
-           
+            
             }
         } else {
             Error("Identifier previously declared", CurrentToken.pos);
