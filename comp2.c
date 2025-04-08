@@ -117,8 +117,7 @@ PRIVATE int parseBooleanExpression( void );
 PRIVATE void parseIfStatement( void );
 PRIVATE void Synchronise( SET *F, SET *FB );
 PRIVATE void SetupSets( void );
-/* PRIVATE void makeSymbolTableEntry( int symType ); */
-PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varAddy );
+PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddress );
 PRIVATE SYMBOL *LookupSymbol( void );
  
 /*--------------------------------------------------------------------------*/
@@ -427,17 +426,15 @@ PRIVATE int parseParamList( SYMBOL *procedure )
 
 PRIVATE int parseDeclarations( int var_type_check )
 {
-    int num_new_vars = 0;
+    int num_new_vars = 1;
     
 
     Accept( VAR );
     if (var_type_check == LOCAL_VAR) {
-        num_new_vars++;
-        makeSymbolTableEntry(STYPE_LOCALVAR, num_new_vars );
+        makeSymbolTableEntry(STYPE_LOCALVAR, &num_new_vars );
 
     } else {    
-        makeSymbolTableEntry(STYPE_VARIABLE, varaddress);
-        num_new_vars++;
+        makeSymbolTableEntry(STYPE_VARIABLE, &varaddress);
         
     }
     Accept( IDENTIFIER );
@@ -445,13 +442,12 @@ PRIVATE int parseDeclarations( int var_type_check )
     while( CurrentToken.code == COMMA){
         Accept( COMMA );
         if (var_type_check == LOCAL_VAR){
-            num_new_vars++;
-            makeSymbolTableEntry(STYPE_LOCALVAR, varaddress + num_new_vars );
+            makeSymbolTableEntry(STYPE_LOCALVAR, &num_new_vars );
 
         }
         else{
-            makeSymbolTableEntry(STYPE_VARIABLE, varaddress + num_new_vars);
-            num_new_vars++;
+            makeSymbolTableEntry(STYPE_VARIABLE, &varaddress);
+            
 
         }
         Accept( IDENTIFIER );
@@ -460,7 +456,8 @@ PRIVATE int parseDeclarations( int var_type_check )
     
     /* Emit(I_INC, num_new_vars); */
     Accept( SEMICOLON );
-    return num_new_vars;
+    
+    return num_new_vars - 1;
 }
 
 PRIVATE void parseActualParameter( SYMBOL *target, int pcount)
@@ -470,18 +467,24 @@ PRIVATE void parseActualParameter( SYMBOL *target, int pcount)
 
     if( CurrentToken.code == IDENTIFIER){
         SYMBOL *var = LookupSymbol();
+        
         if (checkbit) {
-        Emit(I_LOADA, var->address);
+            Emit(I_LOADA, var->address);
         }
+        printf("\ntest IDENTIFIER :%d", var->type);
+        
         Accept( IDENTIFIER );
+
     } else{
         if (checkbit) {
             Error("Identifier for Procedure Param cant be an Expression", CurrentToken.pos);
             KillCodeGeneration;
         } else {
+
             parseExpression();
 
         } 
+        printf("\ntest IDENTIFIER");
         
     }
 }
@@ -654,9 +657,14 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
         parseProcCallList( target );
         _Emit(I_PUSHFP);
         _Emit(I_BSF);
+        Emit( I_CALL, target->address);
+        _Emit(I_RSF);
         
+        break;
     case SEMICOLON:
         if ( target != NULL && target->type == STYPE_PROCEDURE){
+            _Emit(I_PUSHFP);
+            _Emit(I_BSF);
             Emit( I_CALL, target->address);
             _Emit(I_RSF);
         } else {
@@ -675,26 +683,29 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
             Emit(I_STOREFP, target->address);
             
             diffScope = target->scope - 1; /* just get the scope and compare to baseline scope? */
-            
+            /* 
             if (diffScope == 0){
                 
-            } else if (diffScope == 1) {
-                _Emit(I_LOADFP);
-                _Emit(I_BSF);
-                Emit(I_CALL, target->address);
-                _Emit(I_RSF);
-            } else {
-                /* for diffScope greater than 1 */
-                _Emit(I_LOADFP);
-                for (i = 0;  i < diffScope - 1; i++) {
-                    _Emit(I_LOADSP);
-                }
-                Emit(I_STORESP, target->address);
-                _Emit(I_BSF);
-                Emit(I_CALL, target->address);
-                _Emit(I_RSF);
+        } else if (diffScope == 1) {
+            _Emit(I_LOADFP);
+            _Emit(I_BSF);
+            Emit(I_CALL, target->address);
+            _Emit(I_RSF);
+        } else {
+            /* for diffScope greater than 1 */
+            /*
+            _Emit(I_LOADFP);
+            for (i = 0;  i < diffScope - 1; i++) {
+                _Emit(I_LOADSP);
             }
-            
+            Emit(I_STORESP, target->address);
+            _Emit(I_BSF);
+            Emit(I_CALL, target->address);
+            _Emit(I_RSF);
+        }
+        */
+        
+        
         } else if (target != NULL && target->type == STYPE_REFPAR ) {
             Emit(I_LOADFP, target->address);
             _Emit(I_STORESP);
@@ -724,6 +735,7 @@ PRIVATE void parseProcCallList( SYMBOL *target )
         pcount++;
         parseActualParameter(target, pcount);
     }
+    
     Accept(RIGHTPARENTHESIS);
 }
 
@@ -1181,10 +1193,10 @@ PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddress) {
                 newsptr->scope = scope;
                 newsptr->type = symType;
                 if (symType == STYPE_VARIABLE || symType == STYPE_LOCALVAR ) {
-                    newsptr->address = varaddress;
+                    newsptr->address = *varaddress;
                     /* printf("%d;", varaddress); */
-
-                    varaddress++;
+                    
+                    (*varaddress)++;
                     /* Emit(I_LOADA, varaddy);   */
                 } else if (symType == STYPE_VALUEPAR || symType == STYPE_REFPAR){
                     newsptr->address = varaddress;
