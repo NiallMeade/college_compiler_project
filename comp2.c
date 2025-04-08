@@ -88,8 +88,8 @@ PRIVATE void parseProgram( void );
 PRIVATE int parseDeclarations( int var_type_check );
 PRIVATE void parseProcDeclarations( void );
 PRIVATE void parseBlock( void );
-PRIVATE int parseParamList( void );
-PRIVATE void parseFormalParam( void );
+PRIVATE int parseParamList( SYMBOL *procedure );
+PRIVATE SYMBOL *parseFormalParam( SYMBOL *procedure, char* pbitmask );
 PRIVATE void parseStatement( void );
 PRIVATE void parseExpression( void );
 PRIVATE void parseTerm( void );
@@ -330,8 +330,7 @@ PRIVATE void parseProcDeclarations( void )
     scope++;
 
     if( CurrentToken.code == LEFTPARENTHESIS ){
-        int formalVar = parseParamList();
-        procedure->address += formalVar;
+        parseParamList(procedure);
         printf("procedure Addy: %d; ", procedure->address);
 
     } 
@@ -388,19 +387,45 @@ PRIVATE void parseBlock( void )
     Accept( END );
 }
 
-PRIVATE int parseParamList( void )
+PRIVATE int parseParamList( SYMBOL *procedure )
 {   
     int formalVar = 0;
+    char *bitmask;
     Accept( LEFTPARENTHESIS );
-    parseFormalParam();
     formalVar++;
+    int backPatchAddy = 0;
+    SYMBOL arr[8];
+    SYMBOL *startParam = parseFormalParam(procedure, bitmask);
     while ( CurrentToken.code == COMMA )  {
+        
         Accept( COMMA );
         formalVar++;
-        parseFormalParam();
+        startParam = parseFormalParam(procedure, bitmask);
     }
+    procedure->address += 2 * formalVar;
+    procedure->pcount = formalVar;
+    
+    int i = 1;
+
+    while (i <= formalVar){
+        Emit(I_STOREFP, -(i));
+        startParam->address = -i;
+        /*
+        
+        startParam--;
+        startParam = startParam->next; */
+        if (bitmask[formalVar + 1 - i] == '1'){
+            
+        }
+        i++;
+    }
+   
+    
+    printf("procedure param bitmask: %d\n", procedure->ptypes);
     Accept( RIGHTPARENTHESIS );
+    
 }
+
 
 PRIVATE int parseDeclarations( int var_type_check )
 {
@@ -450,21 +475,30 @@ PRIVATE void parseActualParameter( void )
     }
 }
 
-PRIVATE void parseFormalParam( void )
+PRIVATE SYMBOL *parseFormalParam( SYMBOL *procedure, char* bitmask)
 {   
+    SYMBOL *temp;
 
     if(CurrentToken.code == REF) {
         Accept( REF );
-        varaddress++;
-        SYMBOL *temp = makeSymbolTableEntry(STYPE_REFPAR, varaddress);
-        /* Emit(I_LOADA, temp->address);    */
+        temp = makeSymbolTableEntry(STYPE_REFPAR, NULL);
+        bitmask += '1';
+        /* 
+        temp->address = CurrentCodeAddress;
+        Emit(I_LOADI, temp->address); */
+        
     } else {
-        varaddress++;
-        SYMBOL *temp = makeSymbolTableEntry(STYPE_VALUEPAR, varaddress);
-        /* Emit(I_LOADA, temp->address);    */
+        temp = makeSymbolTableEntry(STYPE_VALUEPAR, NULL);
+        bitmask += '0';
+        /* 
+        temp->address = CurrentCodeAddress;
+        Emit(I_LOADI, temp->address); */
+        
+
     }
 
     Accept( IDENTIFIER );
+    return temp;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -616,7 +650,7 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
             Emit(I_STOREA, target->address);
                 
         } else if (target != NULL && target->type == STYPE_LOCALVAR){ /* TODO */
-                Emit(I_STOREFP, target->address);
+            Emit(I_STOREFP, target->address);
             
             /* diffScope = target->scope - 1; /* just get the scope and compare to baseline scope? */
             /* 
@@ -630,7 +664,15 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
                 Emit(I_STORESP, target->address);
             }
             */
-        } else{
+        } else if (target != NULL && target->type == STYPE_REFPAR ) {
+            Emit(I_LOADFP, target->address);
+            _Emit(I_STORESP);
+
+        } else if (target != NULL && target->type == STYPE_VALUEPAR) {
+            Emit(I_STOREFP, target->address);
+
+        } 
+        else{
             Error("Identifier not a declared variable.", CurrentToken.pos);
             KillCodeGeneration();
         }
@@ -804,6 +846,12 @@ PRIVATE void parseSubTerm( void )
                     Emit(I_LOADSP, var->address);
                 } 
                     */
+            } else if (var->type == STYPE_REFPAR) {
+                printf("\nref var: %s; \n", var->s);
+                Emit(I_LOADFP, var->address);
+                _Emit(I_LOADSP);
+            } else if (var->type == STYPE_VALUEPAR) {
+                Emit(I_LOADFP, var->address);
             }
 
 		}else{
@@ -1098,15 +1146,22 @@ PRIVATE SYMBOL *makeSymbolTableEntry(int symType, int *varaddress) {
                 if (oldsptr==NULL) PreserveString();
                 newsptr->scope = scope;
                 newsptr->type = symType;
-                if (symType == STYPE_VARIABLE || symType == STYPE_LOCALVAR) {
+                if (symType == STYPE_VARIABLE || symType == STYPE_LOCALVAR ) {
                     newsptr->address = varaddress;
                     /* printf("%d;", varaddress); */
 
                     varaddress++;
                     /* Emit(I_LOADA, varaddy);   */
-                } else {
+                } else if (symType == STYPE_VALUEPAR || symType == STYPE_REFPAR){
+                    newsptr->address = varaddress;
+                } 
+                else {
                     newsptr->address = -1;
-                    printf("%s", newsptr->s);
+                    if (newsptr->type == STYPE_PROCEDURE) {
+
+                    } else {
+                         
+                    }
                 }
             
             }
