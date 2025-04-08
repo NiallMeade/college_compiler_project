@@ -310,7 +310,7 @@ PRIVATE void parseProcDeclarations( void )
 {
     int BackPatchAddr;
     SYMBOL *procedure;
-    int locals; /* var to count locals for inc and dec space */
+    int locals = 0; /* var to count locals for inc and dec space */
     int scope_vars = varaddress;
 
     Accept( PROCEDURE );
@@ -362,8 +362,7 @@ PRIVATE void parseProcDeclarations( void )
     
     Accept( SEMICOLON );
     
-    
-    Emit(I_DEC, locals);
+    if ( locals != 0) Emit(I_DEC, locals);
     _Emit(I_RET); 
     BackPatch(BackPatchAddr, CurrentCodeAddress());
     RemoveSymbols( scope );
