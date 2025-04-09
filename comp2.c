@@ -177,7 +177,7 @@ PRIVATE void parseProgram( void )
     Accept(SEMICOLON);
     Synchronise( &ProgramFS_aug, &ProgramFBS);
     if ( CurrentToken.code == VAR ) { 
-    varaddress = parseDeclarations(GLOBAL_VAR);
+    parseDeclarations(GLOBAL_VAR);
         Emit(I_INC, varaddress);
     }
     Synchronise( &ProgramSS_aug, &ProgramFBS);
@@ -249,7 +249,7 @@ PRIVATE void parseExpression( void )
 {
 	int op;
 	parseCompoundTerm();
-  	while((op=CurrentToken.code)== ADD || op== SUBTRACT){ /*TODO Find better way to do this*/
+  	while((op=CurrentToken.code)== ADD || op== SUBTRACT ){ /*TODO Find better way to do this*/
         parseAddOp();
         parseCompoundTerm();
         op==ADD ? _Emit(I_ADD): _Emit(I_SUB);
@@ -319,8 +319,9 @@ PRIVATE void parseProcDeclarations( void )
     Emit(I_BR, 999);
     
     
-    if (procedure->address == NULL) {
+    if (procedure == NULL) {
         /* ERROR KILL CODDEGEN?*/
+        Error("procedure has no address", CurrentToken.pos);
         KillCodeGeneration();
     } else {
         procedure->address = CurrentCodeAddress();
@@ -391,30 +392,29 @@ PRIVATE int parseParamList( SYMBOL *procedure )
     int bcount = 0;
     Accept( LEFTPARENTHESIS );
     formalVar++;
-    int backPatchAddy = 0;
-    SYMBOL arr[8];
-    SYMBOL *startParam = parseFormalParam(procedure, &bitmask, bcount);
+    SYMBOL *paramList[10];
+    paramList[0] = parseFormalParam(procedure, &bitmask, bcount);
     while ( CurrentToken.code == COMMA )  {
         
         bcount++;
         Accept( COMMA );
         formalVar++;
-        startParam = parseFormalParam(procedure, &bitmask, bcount);
+        paramList[formalVar] = parseFormalParam(procedure, &bitmask, bcount);
         
     }
     procedure->address += formalVar;
     procedure->pcount = formalVar;
     
-    int i = 1;
-
-    while (i <= formalVar){
-        Emit(I_STOREFP,  i - 1 -(formalVar));
-        startParam->address = i - 1 -(formalVar);
+    int i = 0;
+    while (i < formalVar){
+        Emit(I_STOREFP,  i - formalVar);
+        
+        paramList[i]->address = i - (formalVar);
         /*
         
         startParam--;
         startParam = startParam->next; */
-       
+        
         i++;
     }
    
@@ -442,7 +442,7 @@ PRIVATE int parseDeclarations( int var_type_check )
     while( CurrentToken.code == COMMA){
         Accept( COMMA );
         if (var_type_check == LOCAL_VAR){
-            makeSymbolTableEntry(STYPE_LOCALVAR, &num_new_vars );
+            makeSymbolTableEntry(STYPE_LOCALVAR, &num_new_vars);
 
         }
         else{
@@ -462,31 +462,19 @@ PRIVATE int parseDeclarations( int var_type_check )
 
 PRIVATE void parseActualParameter( SYMBOL *target, int pcount)
 {
-    int ptypes = target->ptypes;
+    int ptypes = target->ptypes; 
     int checkbit = (ptypes >> pcount) & 1;
-
-    if( CurrentToken.code == IDENTIFIER){
+    if (checkbit){
         SYMBOL *var = LookupSymbol();
-        
-        if (checkbit) {
-            Emit(I_LOADA, var->address);
-        }
-        printf("\ntest IDENTIFIER :%d", var->type);
-        
-        Accept( IDENTIFIER );
+        Emit(I_LOADA, var->address);
+        Accept(IDENTIFIER);
+    } else {
+        parseExpression();
 
-    } else{
-        if (checkbit) {
-            Error("Identifier for Procedure Param cant be an Expression", CurrentToken.pos);
-            KillCodeGeneration;
-        } else {
-
-            parseExpression();
-
-        } 
-        printf("\ntest IDENTIFIER");
-        
     }
+    
+        
+    
 }
 
 PRIVATE SYMBOL *parseFormalParam( SYMBOL *procedure, int *bitmask, int bcount)
@@ -496,13 +484,16 @@ PRIVATE SYMBOL *parseFormalParam( SYMBOL *procedure, int *bitmask, int bcount)
     if(CurrentToken.code == REF) {
         Accept( REF );
         temp = makeSymbolTableEntry(STYPE_REFPAR, NULL);
-        *bitmask ^= 1 << bcount;
-        /* 
+        *bitmask = (*bitmask) << 1; 
+        (*bitmask)++;
+        /*
         temp->address = CurrentCodeAddress;
         Emit(I_LOADI, temp->address); */
         
     } else {
         temp = makeSymbolTableEntry(STYPE_VALUEPAR, NULL);
+        *bitmask = (*bitmask) << 1; 
+        
         /* 
         temp->address = CurrentCodeAddress;
         Emit(I_LOADI, temp->address); */
@@ -727,12 +718,12 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
 PRIVATE void parseProcCallList( SYMBOL *target )
 {
     Accept( LEFTPARENTHESIS );
-    int pcount = 0;
+    int pcount = target->pcount;
     parseActualParameter(target, pcount);
 
     while(CurrentToken.code == COMMA){
         Accept( COMMA );
-        pcount++;
+        pcount--;
         parseActualParameter(target, pcount);
     }
     
@@ -868,10 +859,10 @@ PRIVATE void parseSubTerm( void )
 		Accept(LEFTPARENTHESIS);
 		parseExpression();
 		Accept(RIGHTPARENTHESIS);
-  	} else if(CurrentToken.code == INTCONST){
+  	} else if(CurrentToken.code == INTCONST ){
   		Emit(I_LOADI, CurrentToken.value);
         	Accept(INTCONST);
-    	} else{
+    } else{
 		var = LookupSymbol();
 		if (var != NULL){
 
