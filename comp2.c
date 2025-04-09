@@ -407,11 +407,11 @@ PRIVATE int parseParamList( SYMBOL *procedure )
     /* procedure->address += formalVar; */
     procedure->pcount = formalVar;
     
-    int i = 0;
-    while (i < formalVar){
-        Emit(I_STOREFP,  i - formalVar);
+    int i = 1;
+    while (i <= formalVar){
+        Emit(I_STOREFP,  -i);
         
-        paramList[i]->address = i - (formalVar);
+        paramList[formalVar - i ]->address = -i;
         i++;
         
         /*
@@ -635,6 +635,7 @@ PRIVATE void parseSimpleStatement( void )
     parseRestOfStatement( target );
 }
 
+
 PRIVATE void parseRestOfStatement( SYMBOL *target )
 {
     Synchronise(&RestOfStatementFS_aug, &RestOfStatementFBS);
@@ -713,8 +714,6 @@ PRIVATE void parseRestOfStatement( SYMBOL *target )
         }
         break;
     }
-
-
 }
 
 PRIVATE void parseProcCallList( SYMBOL *target )
