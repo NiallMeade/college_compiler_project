@@ -89,7 +89,7 @@ PRIVATE int parseDeclarations( int var_type_check );
 PRIVATE void parseProcDeclarations( void );
 PRIVATE void parseBlock( void );
 PRIVATE int parseParamList( SYMBOL *procedure );
-PRIVATE SYMBOL *parseFormalParam( SYMBOL *procedure, int *bitmask, int bcount);
+PRIVATE SYMBOL *parseFormalParam( int *bitmask, int bcount);
 PRIVATE void parseStatement( void );
 PRIVATE void parseExpression( void );
 PRIVATE void parseTerm( void );
@@ -321,12 +321,13 @@ PRIVATE void parseProcDeclarations( void )
     
     if (procedure == NULL) {
         /* ERROR KILL CODDEGEN?*/
-        Error("procedure has no address", CurrentToken.pos);
+        Error("NULL procedure SYMBOL", CurrentToken.pos);
         KillCodeGeneration();
     } else {
         procedure->address = CurrentCodeAddress();
+        printf("procedure address: %d", procedure->address);
     }
-
+    
     scope++;
 
     if( CurrentToken.code == LEFTPARENTHESIS ){
@@ -393,16 +394,17 @@ PRIVATE int parseParamList( SYMBOL *procedure )
     Accept( LEFTPARENTHESIS );
     formalVar++;
     SYMBOL *paramList[10];
-    paramList[0] = parseFormalParam(procedure, &bitmask, bcount);
+    paramList[0] = parseFormalParam( &bitmask, bcount);
     while ( CurrentToken.code == COMMA )  {
         
         bcount++;
         Accept( COMMA );
+        paramList[formalVar] = parseFormalParam( &bitmask, bcount);
         formalVar++;
-        paramList[formalVar] = parseFormalParam(procedure, &bitmask, bcount);
         
     }
-    procedure->address += formalVar;
+    printf("procedure address: %d;\n", procedure->address);
+    /* procedure->address += formalVar; */
     procedure->pcount = formalVar;
     
     int i = 0;
@@ -410,14 +412,15 @@ PRIVATE int parseParamList( SYMBOL *procedure )
         Emit(I_STOREFP,  i - formalVar);
         
         paramList[i]->address = i - (formalVar);
+        i++;
+        
         /*
         
         startParam--;
         startParam = startParam->next; */
         
-        i++;
     }
-   
+    
     procedure->ptypes = bitmask;
     Accept( RIGHTPARENTHESIS );
     bitmask = 0;
@@ -477,10 +480,9 @@ PRIVATE void parseActualParameter( SYMBOL *target, int pcount)
     
 }
 
-PRIVATE SYMBOL *parseFormalParam( SYMBOL *procedure, int *bitmask, int bcount)
+PRIVATE SYMBOL *parseFormalParam( int *bitmask, int bcount)
 {   
     SYMBOL *temp;
-
     if(CurrentToken.code == REF) {
         Accept( REF );
         temp = makeSymbolTableEntry(STYPE_REFPAR, NULL);
